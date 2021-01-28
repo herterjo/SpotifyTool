@@ -139,7 +139,10 @@ namespace SpotifyTool.SpotifyAPI
         public async Task<IList<PlaylistTrack<IPlayableItem>>> GetAllItemsFromPlaylist(string plID)
         {
             SpotifyClient client = await this.GetSpotifyClient();
-            Paging<PlaylistTrack<IPlayableItem>> firstPage = await client.Playlists.GetItems(plID);
+            var user = await this.GetUser();
+            Paging<PlaylistTrack<IPlayableItem>> firstPage = await client.Playlists.GetItems(plID, new PlaylistGetItemsRequest() {
+                Market = user.Country
+            });
             return await this.PaginateAll(firstPage);
         }
 

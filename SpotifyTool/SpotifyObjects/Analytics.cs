@@ -14,7 +14,7 @@ namespace SpotifyTool.SpotifyObjects
             PrivateUser user = await SpotifyAPIManager.Instance.GetUser();
             string country = user.Country;
             List<FullTrack> allPlaylistTracks = await GetAllPlaylistTracks(pl, playlistID);
-            FullTrack[] nonPlayableTracks = allPlaylistTracks.Where(t => t.Restrictions?.Any() ?? false || t.IsLocal || !t.AvailableMarkets.Contains(country)).ToArray();
+            FullTrack[] nonPlayableTracks = allPlaylistTracks.Where(t => !t.IsPlayable || t.IsLocal).ToArray();
             return nonPlayableTracks;
         }
 
