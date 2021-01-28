@@ -47,6 +47,10 @@ namespace SpotifyTool.SpotifyObjects
             IList<PlaylistTrack<IPlayableItem>> allItems;
             if (simplePlaylist != null)
             {
+                playlistID = simplePlaylist.Id;
+            }
+            if (HasFirstTrackPageLoaded(simplePlaylist))
+            {
                 allItems = await SpotifyAPIManager.Instance.PaginateAll(simplePlaylist.Tracks);
                 path = GetPlaylistFileName(simplePlaylist);
             }
@@ -60,6 +64,11 @@ namespace SpotifyTool.SpotifyObjects
             string playlistJSON = JsonConvert.SerializeObject(allPlaylistTracks);
             await File.WriteAllTextAsync(path, playlistJSON);
             return allPlaylistTracks;
+        }
+
+        private static bool HasFirstTrackPageLoaded(SimplePlaylist simplePlaylist)
+        {
+            return simplePlaylist?.Tracks?.Items != null;
         }
 
         public static List<FullTrack> GetFullTracks(IList<PlaylistTrack<IPlayableItem>> allItems)

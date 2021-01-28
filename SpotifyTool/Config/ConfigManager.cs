@@ -33,22 +33,22 @@ namespace SpotifyTool.Config
             {
                 appConfig = await Read();
             }
-            string id = configGetter(appConfig);
-            if (!String.IsNullOrEmpty(id))
+            string result = configGetter(appConfig);
+            if (!String.IsNullOrEmpty(result))
             {
-                return appConfig.MainPlaylistID;
+                return result;
             }
             Console.WriteLine(printLn);
             while (true)
             {
-                id = Console.ReadLine();
-                if (!String.IsNullOrWhiteSpace(id))
+                result = Console.ReadLine();
+                if (!String.IsNullOrWhiteSpace(result))
                 {
                     break;
                 }
                 Console.WriteLine("Please write something:");
             }
-            return id;
+            return result;
         }
 
         //public static Task<string> GetMainPlaylistID()

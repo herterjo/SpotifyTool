@@ -67,6 +67,7 @@ namespace SpotifyTool.SpotifyAPI
             Task serverStopTask = this._server.Stop();
             Task<KeyValuePair<string, string>> appIDSecretTask = ConfigManager.GetClientIDAndSecretOrFromConsole();
             await Task.WhenAll(serverStopTask, appIDSecretTask);
+            this._server.Dispose();
             KeyValuePair<string, string> appIDAndSecret = appIDSecretTask.Result;
             AuthorizationCodeTokenResponse tokenResponse = await new OAuthClient().RequestToken(
               new AuthorizationCodeTokenRequest(appIDAndSecret.Key, appIDAndSecret.Value, response.Code, new Uri("http://localhost:5000/callback"))
@@ -91,9 +92,17 @@ namespace SpotifyTool.SpotifyAPI
                 SpotifyClient client = await this.GetSpotifyClient();
                 return await client.UserProfile.Current();
             }
-            catch (APIUnauthorizedException ex)
+            catch (Exception ex)
             {
-                if (retries > 1)
+                APIException apiEx = null;
+                if (ex is AggregateException aex && aex.InnerExceptions.Count == 1 && aex.InnerExceptions[0] is APIException apiEx2)
+                {
+                    apiEx = apiEx2;
+                }else if(ex is APIException apiEx3)
+                {
+                    apiEx = apiEx3;
+                }
+                if (apiEx == null || retries > 1)
                 {
                     throw ex;
                 }

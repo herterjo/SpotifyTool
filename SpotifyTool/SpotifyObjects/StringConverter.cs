@@ -24,7 +24,7 @@ namespace SpotifyTool.SpotifyObjects
 
         public static string PlaylistToString(SimplePlaylist pl)
         {
-            return pl.Name + "{" + pl.Id + "}";
+            return pl.Name + " {" + pl.Id + "}";
         }
     }
 }

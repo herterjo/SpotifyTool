@@ -41,7 +41,7 @@ namespace SpotifyTool
                 Console.WriteLine("2) Get non playble tracks");
                 Console.WriteLine("3) Get double tracks in playlist");
                 Console.WriteLine("4) Sync main playlist with ArtistOnlyOnce playlist");
-                Console.WriteLine("5) Refresh all user playlists");
+                Console.WriteLine("5) Refresh all cached user playlists");
                 string option = Console.ReadLine();
                 uint optionInt;
                 if (!UInt32.TryParse(option, out optionInt))
@@ -127,7 +127,7 @@ namespace SpotifyTool
             List<SimplePlaylist> userPlaylists = await SpotifyAPIManager.Instance.GetPlaylistsFromCurrentUser();
             if (excludeIDs != null)
             {
-                userPlaylists = userPlaylists.Where(pl => excludeIDs.Contains(pl.Id)).ToList();
+                userPlaylists = userPlaylists.Where(pl => !excludeIDs.Contains(pl.Id)).ToList();
             }
             if (!userPlaylists.Any())
             {
@@ -163,8 +163,7 @@ namespace SpotifyTool
                 playlistID = pl.Id;
             }
             Console.WriteLine("Nonplayable tracks for playlist " + (pl == null ? playlistID : StringConverter.PlaylistToString(pl)) + ":");
-            List<FullTrack> allPlaylistTracks = await GetAllPlaylistTracks(pl, playlistID);
-            FullTrack[] nonPlayableTracks = allPlaylistTracks.Where(t => t.Restrictions?.Any() ?? false || t.IsLocal).ToArray();
+            FullTrack[] nonPlayableTracks = await Analytics.GetNonPlayableTracks(pl, playlistID);
             if (nonPlayableTracks.Any())
             {
                 string nonPlayableString = StringConverter.AllTracksToString("\n", nonPlayableTracks);
@@ -178,30 +177,10 @@ namespace SpotifyTool
 
         }
 
-        private static async Task<List<FullTrack>> GetAllPlaylistTracks(SimplePlaylist pl, string playlistID)
-        {
-            List<FullTrack> allPlaylistTracks;
-            if (pl != null)
-            {
-                allPlaylistTracks = await PlaylistManager.GetAllPlaylistTracks(pl);
-            }
-            else
-            {
-                allPlaylistTracks = await PlaylistManager.GetAllPlaylistTracks(playlistID);
-            }
-
-            return allPlaylistTracks;
-        }
-
         private static async Task CheckDoubleTracks(SimplePlaylist pl, string playlistID)
         {
-            List<FullTrack> allPlaylistTracks = await GetAllPlaylistTracks(pl, playlistID);
-            FullTrack[] allSameTracks = allPlaylistTracks
-                .Where(t1 => allPlaylistTracks
-                    .Any(t2 => t2.Id != t1.Id && t1.Uri != t2.Uri && t1.Name.ToLower().StartsWith(t2.Name.ToLower()) && t1.Artists
-                        .Select(a => a.Id).Any(aID => t2.Artists.Select(a => a.Id).Contains(aID))))
-                .Distinct().OrderBy(t => t.Name).ToArray();
             Console.WriteLine("Double tracks for playlist " + (pl == null ? playlistID : StringConverter.PlaylistToString(pl)) + ":");
+            FullTrack[] allSameTracks = await Analytics.GetDoubleTracks(pl, playlistID);
             if (allSameTracks.Any())
             {
                 string sameTracksString = StringConverter.AllTracksToString("\n", allSameTracks);
@@ -216,13 +195,13 @@ namespace SpotifyTool
 
         private static async Task Sync(string mainPLID, string secondPLID)
         {
-            var mainTracksTask = GetAllTrackInfo(mainPLID);
+            Console.WriteLine("Double artists in secondary playlist:");
+            Task<Dictionary<PlaylistTrack<IPlayableItem>, FullTrack>> mainTracksTask = GetAllTrackInfo(mainPLID);
             Task<List<FullTrack>> secondaryTracksTask = PlaylistManager.GetAllPlaylistTracks(secondPLID);
             await Task.WhenAll(mainTracksTask, secondaryTracksTask);
-            var mainTracks = mainTracksTask.Result;
+            Dictionary<PlaylistTrack<IPlayableItem>, FullTrack> mainTracks = mainTracksTask.Result;
             List<FullTrack> secondaryTracks = secondaryTracksTask.Result;
             FullTrack[] doubleArtistTracks = secondaryTracks.Where(t => IsArtistPresent(t, secondaryTracks)).ToArray();
-            Console.WriteLine("Double artists in secondary playlist:");
             if (doubleArtistTracks.Any())
             {
                 string doubleArtistsString = StringConverter.AllTracksToString("\n", doubleArtistTracks);
@@ -234,13 +213,14 @@ namespace SpotifyTool
             }
             Console.WriteLine("\n");
 
+            Console.WriteLine("Tracks to add:");
             ICollection<FullTrack> toAddLinked = new LinkedList<FullTrack>();
-            var presentArtists = secondaryTracks.SelectMany(t => t.Artists.Select(a => a.Id));
-            var orderedFirst = mainTracks.Where(kv => !kv.Value.Artists.Any(a => presentArtists.Contains(a.Id))).OrderBy(kv => kv.Key.AddedAt).Select(kv => kv.Value).ToList();
-            for (var i = 0; i < orderedFirst.Count; i++)
+            IEnumerable<string> presentArtists = secondaryTracks.SelectMany(t => t.Artists.Select(a => a.Id));
+            List<FullTrack> orderedFirst = mainTracks.Where(kv => !kv.Value.Artists.Any(a => presentArtists.Contains(a.Id))).OrderBy(kv => kv.Key.AddedAt).Select(kv => kv.Value).ToList();
+            for (int i = 0; i < orderedFirst.Count; i++)
             {
-                var currentTrack = orderedFirst[i];
-                var currentTrackArtitsIDs = currentTrack.Artists.Select(a => a.Id);
+                FullTrack currentTrack = orderedFirst[i];
+                IEnumerable<string> currentTrackArtitsIDs = currentTrack.Artists.Select(a => a.Id);
                 if (currentTrackArtitsIDs.Any(aid => presentArtists.Contains(aid)))
                 {
                     continue;
@@ -248,7 +228,6 @@ namespace SpotifyTool
                 toAddLinked.Add(currentTrack);
                 presentArtists = presentArtists.Concat(currentTrackArtitsIDs);
             }
-            Console.WriteLine("Tracks to add:");
             if (toAddLinked.Any())
             {
                 string toAddLinkedString = StringConverter.AllTracksToString("\n", toAddLinked.ToArray());
@@ -261,9 +240,9 @@ namespace SpotifyTool
             Console.WriteLine("\n");
         }
 
-        private async static  Task<Dictionary<PlaylistTrack<IPlayableItem>, FullTrack>> GetAllTrackInfo(string plID)
+        private static async Task<Dictionary<PlaylistTrack<IPlayableItem>, FullTrack>> GetAllTrackInfo(string plID)
         {
-            var items = await SpotifyAPIManager.Instance.GetAllItemsFromPlaylist(plID);
+            IList<PlaylistTrack<IPlayableItem>> items = await SpotifyAPIManager.Instance.GetAllItemsFromPlaylist(plID);
             return PlaylistManager.GetFullTracksDict(items);
         }
 
