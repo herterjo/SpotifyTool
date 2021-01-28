@@ -98,7 +98,8 @@ namespace SpotifyTool.SpotifyAPI
                 if (ex is AggregateException aex && aex.InnerExceptions.Count == 1 && aex.InnerExceptions[0] is APIException apiEx2)
                 {
                     apiEx = apiEx2;
-                }else if(ex is APIException apiEx3)
+                }
+                else if (ex is APIException apiEx3)
                 {
                     apiEx = apiEx3;
                 }
@@ -140,6 +141,107 @@ namespace SpotifyTool.SpotifyAPI
             SpotifyClient client = await this.GetSpotifyClient();
             Paging<PlaylistTrack<IPlayableItem>> firstPage = await client.Playlists.GetItems(plID);
             return await this.PaginateAll(firstPage);
+        }
+
+        public Task BatchAddWithOwnerCheck(string playlistID, List<FullTrack> tracks)
+        {
+            return this.BatchAddWithOwnerCheck(playlistID, tracks.Select(t => t.Uri).ToList());
+        }
+
+        public async Task BatchAddWithOwnerCheck(string playlistID, List<string> trackURIs)
+        {
+            await ThrowIfNotOwner(playlistID);
+            await this.BatchAdd(playlistID, trackURIs);
+        }
+
+        public Task BatchAddWithOwnerCheck(SimplePlaylist playlist, List<FullTrack> tracks)
+        {
+            return this.BatchAddWithOwnerCheck(playlist, tracks.Select(t => t.Uri).ToList());
+        }
+
+        public async Task BatchAddWithOwnerCheck(SimplePlaylist playlist, List<string> trackURIs)
+        {
+            await ThrowIfNotOwner(playlist);
+            await BatchAdd(playlist.Id, trackURIs);
+        }
+
+        private async Task BatchAdd(string playlistID, List<string> trackURIs)
+        {
+            const int spotifyMaxAdd = 100;
+            SpotifyClient manager = await this.GetSpotifyClient();
+            ICollection<Task> tasks = new LinkedList<Task>();
+            for (int i = 0; i < trackURIs.Count; i += spotifyMaxAdd)
+            {
+                //i equals taken elements
+                int toTake = trackURIs.Count < (i + spotifyMaxAdd) ? trackURIs.Count - i : spotifyMaxAdd;
+                List<string> toAdd = trackURIs.GetRange(i, toTake);
+                Task<SnapshotResponse> task = manager.Playlists.AddItems(playlistID, new PlaylistAddItemsRequest(toAdd));
+                tasks.Add(task);
+            }
+            await Task.WhenAll(tasks.ToArray());
+        }
+
+        private async Task ThrowIfNotOwner(SimplePlaylist playlist)
+        {
+            var currentUser = await GetUser();
+            if (currentUser.Id != playlist.Owner.Id)
+            {
+                throw new APIUnauthorizedException("Playlist not owned by user");
+            }
+        }
+
+        private async Task ThrowIfNotOwner(string playlistID)
+        {
+            var userPlaylists = await GetPlaylistsFromCurrentUser();
+            if (!userPlaylists.Any(p => p.Id == playlistID))
+            {
+                throw new APIUnauthorizedException("Playlist not owned by user");
+            }
+        }
+
+        public Task RemoveFromPlaylistWithOwnerCheck(SimplePlaylist playlist, FullTrack track)
+        {
+            return RemoveFromPlaylistWithOwnerCheck(playlist, track.Uri);
+        }
+
+        public async Task RemoveFromPlaylistWithOwnerCheck(SimplePlaylist playlist, string spotifyURI)
+        {
+            await ThrowIfNotOwner(playlist);
+            await RemoveFromPlaylist(playlist.Id, spotifyURI);
+        }
+
+        public Task RemoveFromPlaylistWithOwnerCheck(string playlistID, FullTrack track)
+        {
+            return RemoveFromPlaylistWithOwnerCheck(playlistID, track.Uri);
+        }
+
+        public async Task RemoveFromPlaylistWithOwnerCheck(string playlistID, string spotifyURI)
+        {
+            await ThrowIfNotOwner(playlistID);
+            await RemoveFromPlaylist(playlistID, spotifyURI);
+        }
+
+        private async Task RemoveFromPlaylist(string playlistID, string spotifyURI)
+        {
+            SpotifyClient manager = await this.GetSpotifyClient();
+            await manager.Playlists.RemoveItems(playlistID, new PlaylistRemoveItemsRequest() {
+                Tracks = new List<PlaylistRemoveItemsRequest.Item>() {
+                    new PlaylistRemoveItemsRequest.Item() {
+                        Uri = spotifyURI
+                    }
+                }
+            });
+        }
+
+        public Task Unlike(FullTrack track)
+        {
+            return Unlike(track);
+        }
+
+        public async Task Unlike(string spotifyID)
+        {
+            SpotifyClient manager = await this.GetSpotifyClient();
+            await manager.Library.RemoveTracks(new LibraryRemoveTracksRequest(new List<string>() { spotifyID }));
         }
     }
 }

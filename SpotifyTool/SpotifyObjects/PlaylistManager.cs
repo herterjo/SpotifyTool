@@ -10,7 +10,7 @@ namespace SpotifyTool.SpotifyObjects
 {
     public static class PlaylistManager
     {
-        public const string JSONFileEnding = ".json";
+        public const string PlaylistFileEnding = ".playlist.json";
 
         private static string GetPlaylistFileName(SimplePlaylist pl)
         {
@@ -19,7 +19,7 @@ namespace SpotifyTool.SpotifyObjects
 
         private static string GetPlaylistFileName(string plID)
         {
-            return plID + JSONFileEnding;
+            return plID + PlaylistFileEnding;
         }
 
         public static async Task RefreshAllUserPlaylists()
@@ -27,21 +27,21 @@ namespace SpotifyTool.SpotifyObjects
             SpotifyAPIManager spotifyAPIManager = SpotifyAPIManager.Instance;
             List<SimplePlaylist> playlists = await spotifyAPIManager.GetPlaylistsFromCurrentUser();
             List<SimplePlaylist> toRefresh = playlists.Where(pl => File.Exists(GetPlaylistFileName(pl))).ToList();
-            Task<List<FullTrack>>[] allRefreshTasks = toRefresh.Select(RefreshSinglePlaylist).ToArray();
+            Task[] allRefreshTasks = toRefresh.Select(RefreshSinglePlaylist).ToArray();
             await Task.WhenAll(allRefreshTasks);
         }
 
-        public static Task<List<FullTrack>> RefreshSinglePlaylist(string playlistID)
+        public static Task<List<FullPlaylistTrack>> RefreshSinglePlaylist(string playlistID)
         {
             return RefreshSinglePlaylist(null, playlistID);
         }
 
-        public static Task<List<FullTrack>> RefreshSinglePlaylist(SimplePlaylist simplePlaylist)
+        public static Task<List<FullPlaylistTrack>> RefreshSinglePlaylist(SimplePlaylist simplePlaylist)
         {
             return RefreshSinglePlaylist(simplePlaylist, null);
         }
 
-        private static async Task<List<FullTrack>> RefreshSinglePlaylist(SimplePlaylist simplePlaylist, string playlistID)
+        private static async Task<List<FullPlaylistTrack>> RefreshSinglePlaylist(SimplePlaylist simplePlaylist, string playlistID)
         {
             string path;
             IList<PlaylistTrack<IPlayableItem>> allItems;
@@ -60,7 +60,7 @@ namespace SpotifyTool.SpotifyObjects
                 path = GetPlaylistFileName(playlistID);
             }
 
-            List<FullTrack> allPlaylistTracks = GetFullTracks(allItems);
+            var allPlaylistTracks = GetPlaylistTracks(allItems);
             string playlistJSON = JsonConvert.SerializeObject(allPlaylistTracks);
             await File.WriteAllTextAsync(path, playlistJSON);
             return allPlaylistTracks;
@@ -71,27 +71,27 @@ namespace SpotifyTool.SpotifyObjects
             return simplePlaylist?.Tracks?.Items != null;
         }
 
-        public static List<FullTrack> GetFullTracks(IList<PlaylistTrack<IPlayableItem>> allItems)
+        public static List<FullPlaylistTrack> GetPlaylistTracks(IList<PlaylistTrack<IPlayableItem>> allItems)
         {
-            return allItems.Select(i => i.Track).Where(t => t.GetType() == typeof(FullTrack)).Cast<FullTrack>().ToList();
+            return allItems.Where(i => i.Track.GetType() == typeof(FullTrack)).Select(i => new FullPlaylistTrack(i, (FullTrack)i.Track)).ToList();
         }
 
-        public static Dictionary<PlaylistTrack<IPlayableItem>, FullTrack> GetFullTracksDict(IList<PlaylistTrack<IPlayableItem>> allItems)
-        {
-            return allItems.Where(i => i.Track.GetType() == typeof(FullTrack)).ToDictionary(i => i, i => (FullTrack)i.Track);
-        }
-
-        public static Task<List<FullTrack>> GetAllPlaylistTracks(SimplePlaylist pl)
+        public static Task<List<FullPlaylistTrack>> GetAllPlaylistTracks(SimplePlaylist pl)
         {
             return GetAllPlaylistTracks(pl, null);
         }
 
-        public static Task<List<FullTrack>> GetAllPlaylistTracks(string plID)
+        public static Task<List<FullPlaylistTrack>> GetAllPlaylistTracks(string plID)
         {
             return GetAllPlaylistTracks(null, plID);
         }
 
-        private static async Task<List<FullTrack>> GetAllPlaylistTracks(SimplePlaylist pl, string playlistID)
+        public static List<FullTrack> GetAllPlaylistTrackInfo(List<FullPlaylistTrack> playlist)
+        {
+            return playlist.Select(fpt => fpt.TrackInfo).ToList();
+        }
+
+        private static async Task<List<FullPlaylistTrack>> GetAllPlaylistTracks(SimplePlaylist pl, string playlistID)
         {
             string fn;
             if (pl != null)
@@ -105,7 +105,7 @@ namespace SpotifyTool.SpotifyObjects
             if (!File.Exists(fn))
             {
                 string content = await File.ReadAllTextAsync(fn);
-                return JsonConvert.DeserializeObject<List<FullTrack>>(content);
+                return JsonConvert.DeserializeObject<List<FullPlaylistTrack>>(content);
             }
             if (pl != null)
             {

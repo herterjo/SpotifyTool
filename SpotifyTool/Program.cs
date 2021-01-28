@@ -1,9 +1,12 @@
-﻿using SpotifyAPI.Web;
+﻿using Newtonsoft.Json;
+using SpotifyAPI.Web;
 using SpotifyTool.Config;
+using SpotifyTool.Logger;
 using SpotifyTool.SpotifyAPI;
 using SpotifyTool.SpotifyObjects;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -11,10 +14,12 @@ namespace SpotifyTool
 {
     public class Program
     {
-        private const bool refresh = false;
+        public static LogFileManager LogFileManager;
+
 
         public static void Main(string[] args)
         {
+            LogFileManager = LogFileManager.GetNewManager("logfile.txt").Result;
 #if !DEBUG
             try
             {
@@ -40,8 +45,11 @@ namespace SpotifyTool
                 Console.WriteLine("1) All analytics");
                 Console.WriteLine("2) Get non playble tracks");
                 Console.WriteLine("3) Get double tracks in playlist");
-                Console.WriteLine("4) Sync main playlist with ArtistOnlyOnce playlist");
-                Console.WriteLine("5) Refresh all cached user playlists");
+                Console.WriteLine("4) Get double artists in playlist (one time transitive)");
+                Console.WriteLine("5) Sync main playlist with ArtistOnlyOnce playlist");
+                Console.WriteLine("6) Refresh all cached user playlists");
+                Console.WriteLine("7) Log in");
+                Console.WriteLine("8) Edit Playlist");
                 string option = Console.ReadLine();
                 uint optionInt;
                 if (!UInt32.TryParse(option, out optionInt))
@@ -68,12 +76,21 @@ namespace SpotifyTool
                         await CheckDoubleTracks(dPL, null);
                         break;
                     case 4:
+                        KeyValuePair<string, string> idsDoubleArtists = await GetMainAndSecondPlaylistIDs();
+                        await FindDoubleArtists(idsDoubleArtists.Value);
+                        break;
+                    case 5:
                         KeyValuePair<string, string> ids = await GetMainAndSecondPlaylistIDs();
                         await Sync(ids.Key, ids.Value);
                         break;
-                    case 5:
+                    case 6:
                         await PlaylistManager.RefreshAllUserPlaylists();
                         break;
+                    case 7:
+                        await SpotifyAPIManager.Instance.LogInRequest();
+                        break;
+                    case 8:
+
                     default:
                         Console.WriteLine("Number not recognized for menu");
                         break;
@@ -84,17 +101,6 @@ namespace SpotifyTool
                     break;
                 }
             }
-        }
-
-        private static async Task AllAnalytics(string mainID, string secondID)
-        {
-            await PlaylistManager.RefreshSinglePlaylist(mainID);
-            await PlaylistManager.RefreshSinglePlaylist(secondID);
-            await PrintNonPlayableTracks(null, mainID);
-            await PrintNonPlayableTracks(null, secondID);
-            await CheckDoubleTracks(null, mainID);
-            await CheckDoubleTracks(null, secondID);
-            await Sync(mainID, secondID);
         }
 
         private static async Task<KeyValuePair<string, string>> GetMainAndSecondPlaylistIDs()
@@ -162,107 +168,108 @@ namespace SpotifyTool
             {
                 playlistID = pl.Id;
             }
-            Console.WriteLine("Nonplayable tracks for playlist " + (pl == null ? playlistID : StringConverter.PlaylistToString(pl)) + ":");
+            await LogFileManager.WriteToLogAndConsole("Nonplayable tracks for playlist " + (pl == null ? playlistID : StringConverter.PlaylistToString(pl)) + ":");
             FullTrack[] nonPlayableTracks = await Analytics.GetNonPlayableTracks(pl, playlistID);
             if (nonPlayableTracks.Any())
             {
                 string nonPlayableString = StringConverter.AllTracksToString("\n", nonPlayableTracks);
-                Console.WriteLine(nonPlayableString);
+                await LogFileManager.WriteToLogAndConsole(nonPlayableString);
             }
             else
             {
-                Console.WriteLine("None");
+                await LogFileManager.WriteToLogAndConsole("None");
             }
-            Console.WriteLine("\n");
+            await LogFileManager.WriteToLogAndConsole("\n");
 
         }
 
         private static async Task CheckDoubleTracks(SimplePlaylist pl, string playlistID)
         {
-            Console.WriteLine("Double tracks for playlist " + (pl == null ? playlistID : StringConverter.PlaylistToString(pl)) + ":");
+            await LogFileManager.WriteToLogAndConsole("Double tracks for playlist " + (pl == null ? playlistID : StringConverter.PlaylistToString(pl)) + ":");
             FullTrack[] allSameTracks = await Analytics.GetDoubleTracks(pl, playlistID);
             if (allSameTracks.Any())
             {
                 string sameTracksString = StringConverter.AllTracksToString("\n", allSameTracks);
-                Console.WriteLine(sameTracksString);
+                await LogFileManager.WriteToLogAndConsole(sameTracksString);
             }
             else
             {
-                Console.WriteLine("None");
+                await LogFileManager.WriteToLogAndConsole("None");
             }
-            Console.WriteLine("\n");
+            await LogFileManager.WriteToLogAndConsole("\n");
+        }
+
+        private static async Task AllAnalytics(string mainID, string secondID)
+        {
+            await PlaylistManager.RefreshSinglePlaylist(mainID);
+            await PlaylistManager.RefreshSinglePlaylist(secondID);
+            await PrintNonPlayableTracks(null, mainID);
+            await PrintNonPlayableTracks(null, secondID);
+            await CheckDoubleTracks(null, mainID);
+            await CheckDoubleTracks(null, secondID);
+            await FindDoubleArtists(secondID);
+            await Sync(mainID, secondID);
+        }
+
+        private static async Task FindDoubleArtists(string secondPLID)
+        {
+            await LogFileManager.WriteToLogAndConsole("Double artists in secondary playlist " + secondPLID + ":");
+            List<FullPlaylistTrack> secondPL = await PlaylistManager.GetAllPlaylistTracks(secondPLID);
+            var tracks = PlaylistManager.GetAllPlaylistTrackInfo(secondPL);
+            FullTrack[] doubleArtistTracks = Analytics.GetDoubleArtistsTracks(tracks).OrderBy(t => t.Artists.OrderBy(a => a.Name).First().Name).ToArray();
+            if (doubleArtistTracks.Any())
+            {
+                string doubleArtistsString = StringConverter.AllTracksToString("\n", doubleArtistTracks);
+                await LogFileManager.WriteToLogAndConsole(doubleArtistsString);
+            }
+            else
+            {
+                await LogFileManager.WriteToLogAndConsole("None");
+            }
+            await LogFileManager.WriteToLogAndConsole("\n");
         }
 
         private static async Task Sync(string mainPLID, string secondPLID)
         {
-            Console.WriteLine("Double artists in secondary playlist:");
-            Task<Dictionary<PlaylistTrack<IPlayableItem>, FullTrack>> mainTracksTask = GetAllTrackInfo(mainPLID);
-            Task<List<FullTrack>> secondaryTracksTask = PlaylistManager.GetAllPlaylistTracks(secondPLID);
+            Task<List<FullPlaylistTrack>> mainTracksTask = PlaylistManager.GetAllPlaylistTracks(mainPLID);
+            Task<List<FullPlaylistTrack>> secondaryTracksTask = PlaylistManager.GetAllPlaylistTracks(secondPLID);
             await Task.WhenAll(mainTracksTask, secondaryTracksTask);
-            Dictionary<PlaylistTrack<IPlayableItem>, FullTrack> mainTracks = mainTracksTask.Result;
-            List<FullTrack> secondaryTracks = secondaryTracksTask.Result;
-            FullTrack[] doubleArtistTracks = secondaryTracks.Where(t => IsArtistPresent(t, secondaryTracks)).ToArray();
-            if (doubleArtistTracks.Any())
+            List<FullPlaylistTrack> mainTracks = mainTracksTask.Result;
+            List<FullTrack> secondaryTracks = PlaylistManager.GetAllPlaylistTrackInfo(secondaryTracksTask.Result);
+            await LogFileManager.WriteToLogAndConsole("Tracks to add from main playlist " + mainPLID + " to secondary playlist " + secondPLID + ":");
+            ICollection<FullTrack> toAdd = Analytics.GetTracksToAddToSecondary(mainTracks, secondaryTracks);
+            if (toAdd.Any())
             {
-                string doubleArtistsString = StringConverter.AllTracksToString("\n", doubleArtistTracks);
-                Console.WriteLine(doubleArtistsString);
+                string toAddLinkedString = StringConverter.AllTracksToString("\n", toAdd.ToArray());
+                await LogFileManager.WriteToLogAndConsole(toAddLinkedString);
             }
             else
             {
-                Console.WriteLine("None");
+                await LogFileManager.WriteToLogAndConsole("None");
             }
-            Console.WriteLine("\n");
+            await LogFileManager.WriteToLogAndConsole("\n");
 
-            Console.WriteLine("Tracks to add:");
-            ICollection<FullTrack> toAddLinked = new LinkedList<FullTrack>();
-            IEnumerable<string> presentArtists = secondaryTracks.SelectMany(t => t.Artists.Select(a => a.Id));
-            List<FullTrack> orderedFirst = mainTracks.Where(kv => !kv.Value.Artists.Any(a => presentArtists.Contains(a.Id))).OrderBy(kv => kv.Key.AddedAt).Select(kv => kv.Value).ToList();
-            for (int i = 0; i < orderedFirst.Count; i++)
+            if (!toAdd.Any())
             {
-                FullTrack currentTrack = orderedFirst[i];
-                IEnumerable<string> currentTrackArtitsIDs = currentTrack.Artists.Select(a => a.Id);
-                if (currentTrackArtitsIDs.Any(aid => presentArtists.Contains(aid)))
-                {
-                    continue;
-                }
-                toAddLinked.Add(currentTrack);
-                presentArtists = presentArtists.Concat(currentTrackArtitsIDs);
+                return;
             }
-            if (toAddLinked.Any())
-            {
-                string toAddLinkedString = StringConverter.AllTracksToString("\n", toAddLinked.ToArray());
-                Console.WriteLine(toAddLinkedString);
-            }
-            else
-            {
-                Console.WriteLine("None");
-            }
-            Console.WriteLine("\n");
-        }
 
-        private static async Task<Dictionary<PlaylistTrack<IPlayableItem>, FullTrack>> GetAllTrackInfo(string plID)
-        {
-            IList<PlaylistTrack<IPlayableItem>> items = await SpotifyAPIManager.Instance.GetAllItemsFromPlaylist(plID);
-            return PlaylistManager.GetFullTracksDict(items);
-        }
-
-        private static bool IsArtistPresent(FullTrack trackToCheck, List<FullTrack> tracks)
-        {
-            IEnumerable<string> artistIDsOfTrackToCheck = trackToCheck.Artists.Select(a => a.Id);
-            IEnumerable<FullTrack> warningTracks = tracks.Where(t => t.Id != trackToCheck.Id && artistIDsOfTrackToCheck.Any(aid => t.Artists.Any(a => aid.Contains(a.Id))));
-            if (!warningTracks.Any())
+            Console.WriteLine("Would you like to add the playlist items now to playlist " + secondPLID + "? (y/n)");
+            string answer = Console.ReadLine();
+            if (answer != "y")
             {
-                return false;
+                return;
             }
-            if (warningTracks.Any(t => t.Artists.Count < 2))
+            string addedJSON = JsonConvert.SerializeObject(toAdd);
+            await File.WriteAllTextAsync("allBatchAddedTracks.json", addedJSON);
+            try
             {
-                return true;
+                await SpotifyAPIManager.Instance.BatchAddWithOwnerCheck(secondPLID, toAdd.ToList());
             }
-            IEnumerable<string> furtherArtistIDs = warningTracks.SelectMany(t => t.Artists.Select(a => a.Id)).Where(aid => artistIDsOfTrackToCheck.Contains(aid)).Distinct();
-            List<FullTrack> trackCopy = new List<FullTrack>();
-            trackCopy.RemoveAll(t => warningTracks.Contains(t));
-            IEnumerable<string> allTracksArtistIds = trackCopy.SelectMany(t => t.Artists.Select(a => a.Id)).Distinct();
-            return furtherArtistIDs.Any(aid1 => allTracksArtistIds.Contains(aid1));
+            catch (APIUnauthorizedException ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
         }
     }
 }

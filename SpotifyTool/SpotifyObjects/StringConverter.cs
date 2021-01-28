@@ -26,5 +26,10 @@ namespace SpotifyTool.SpotifyObjects
         {
             return pl.Name + " {" + pl.Id + "}";
         }
+
+        public static string GetId(string spotifyUri)
+        {
+            return spotifyUri.Split(":").Last();
+        }
     }
 }
