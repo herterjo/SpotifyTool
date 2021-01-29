@@ -8,6 +8,8 @@ namespace SpotifyTool.SpotifyAPI
 {
     public class ClientManager
     {
+        public static event Action AfterClientChange;
+
         private static ClientManager _Instance = null;
         public static ClientManager Instance
         {
@@ -36,6 +38,7 @@ namespace SpotifyTool.SpotifyAPI
                     .CreateDefault()
                     .WithAuthenticator(new ClientCredentialsAuthenticator(clientIDAndSecret.Key, clientIDAndSecret.Value));
                 this.SpotifyClient = new SpotifyClient(clientConfig);
+                AfterClientChange.Invoke();
             }
             return this.SpotifyClient;
         }
@@ -43,6 +46,7 @@ namespace SpotifyTool.SpotifyAPI
         protected void SetSpotifyClient(SpotifyClient client)
         {
             this.SpotifyClient = client ?? throw new ArgumentNullException(nameof(client));
+            AfterClientChange.Invoke();
         }
     }
 }

@@ -264,7 +264,10 @@ namespace SpotifyTool
             await File.WriteAllTextAsync("allBatchAddedTracks.json", addedJSON);
             try
             {
-                await SpotifyAPIManager.Instance.BatchAddWithOwnerCheck(secondPLID, toAdd.ToList());
+                using (var plManager = await PlaylistEditor.GetPlaylistEditor(secondPLID))
+                {
+                    await plManager.BatchAdd(toAdd.ToList());
+                }
             }
             catch (APIUnauthorizedException ex)
             {

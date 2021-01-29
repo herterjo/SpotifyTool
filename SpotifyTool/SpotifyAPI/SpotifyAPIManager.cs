@@ -1,6 +1,7 @@
 ﻿using SpotifyAPI.Web;
 using SpotifyAPI.Web.Auth;
 using SpotifyTool.Config;
+using SpotifyTool.SpotifyObjects;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -80,6 +81,14 @@ namespace SpotifyTool.SpotifyAPI
             OnLogin.Invoke();
         }
 
+        public async Task<IList<SavedTrack>> GetLikedTracks()
+        {
+            PrivateUser user = await this.GetUser();
+            SpotifyClient client = await this.GetSpotifyClient();
+            Paging<SavedTrack> firstPage = await client.Library.GetTracks();
+            return await this.PaginateAll(firstPage);
+        }
+
         public Task<PrivateUser> GetUser()
         {
             return this.GetUser(0);
@@ -139,36 +148,15 @@ namespace SpotifyTool.SpotifyAPI
         public async Task<IList<PlaylistTrack<IPlayableItem>>> GetAllItemsFromPlaylist(string plID)
         {
             SpotifyClient client = await this.GetSpotifyClient();
-            var user = await this.GetUser();
-            Paging<PlaylistTrack<IPlayableItem>> firstPage = await client.Playlists.GetItems(plID, new PlaylistGetItemsRequest() {
+            PrivateUser user = await this.GetUser();
+            Paging<PlaylistTrack<IPlayableItem>> firstPage = await client.Playlists.GetItems(plID, new PlaylistGetItemsRequest()
+            {
                 Market = user.Country
             });
             return await this.PaginateAll(firstPage);
         }
 
-        public Task BatchAddWithOwnerCheck(string playlistID, List<FullTrack> tracks)
-        {
-            return this.BatchAddWithOwnerCheck(playlistID, tracks.Select(t => t.Uri).ToList());
-        }
-
-        public async Task BatchAddWithOwnerCheck(string playlistID, List<string> trackURIs)
-        {
-            await ThrowIfNotOwner(playlistID);
-            await this.BatchAdd(playlistID, trackURIs);
-        }
-
-        public Task BatchAddWithOwnerCheck(SimplePlaylist playlist, List<FullTrack> tracks)
-        {
-            return this.BatchAddWithOwnerCheck(playlist, tracks.Select(t => t.Uri).ToList());
-        }
-
-        public async Task BatchAddWithOwnerCheck(SimplePlaylist playlist, List<string> trackURIs)
-        {
-            await ThrowIfNotOwner(playlist);
-            await BatchAdd(playlist.Id, trackURIs);
-        }
-
-        private async Task BatchAdd(string playlistID, List<string> trackURIs)
+        public async Task BatchAdd(string playlistID, List<string> trackURIs)
         {
             const int spotifyMaxAdd = 100;
             SpotifyClient manager = await this.GetSpotifyClient();
@@ -184,61 +172,29 @@ namespace SpotifyTool.SpotifyAPI
             await Task.WhenAll(tasks.ToArray());
         }
 
-        private async Task ThrowIfNotOwner(SimplePlaylist playlist)
+        public async Task<bool> IsCurrentUserOwner(SimplePlaylist playlist)
         {
-            var currentUser = await GetUser();
-            if (currentUser.Id != playlist.Owner.Id)
-            {
-                throw new APIUnauthorizedException("Playlist not owned by user");
-            }
+            PrivateUser currentUser = await this.GetUser();
+            return currentUser.Id == playlist.Owner.Id;
         }
 
-        private async Task ThrowIfNotOwner(string playlistID)
+        public async Task<bool> IsCurrentUserOwner(string playlistID)
         {
-            var userPlaylists = await GetPlaylistsFromCurrentUser();
-            if (!userPlaylists.Any(p => p.Id == playlistID))
-            {
-                throw new APIUnauthorizedException("Playlist not owned by user");
-            }
+            List<SimplePlaylist> userPlaylists = await this.GetPlaylistsFromCurrentUser();
+            return userPlaylists.Any(p => p.Id == playlistID);
         }
 
-        public Task RemoveFromPlaylistWithOwnerCheck(SimplePlaylist playlist, FullTrack track)
-        {
-            return RemoveFromPlaylistWithOwnerCheck(playlist, track.Uri);
-        }
-
-        public async Task RemoveFromPlaylistWithOwnerCheck(SimplePlaylist playlist, string spotifyURI)
-        {
-            await ThrowIfNotOwner(playlist);
-            await RemoveFromPlaylist(playlist.Id, spotifyURI);
-        }
-
-        public Task RemoveFromPlaylistWithOwnerCheck(string playlistID, FullTrack track)
-        {
-            return RemoveFromPlaylistWithOwnerCheck(playlistID, track.Uri);
-        }
-
-        public async Task RemoveFromPlaylistWithOwnerCheck(string playlistID, string spotifyURI)
-        {
-            await ThrowIfNotOwner(playlistID);
-            await RemoveFromPlaylist(playlistID, spotifyURI);
-        }
-
-        private async Task RemoveFromPlaylist(string playlistID, string spotifyURI)
+        public async Task RemoveFromPlaylist(string playlistID, string spotifyURI)
         {
             SpotifyClient manager = await this.GetSpotifyClient();
-            await manager.Playlists.RemoveItems(playlistID, new PlaylistRemoveItemsRequest() {
+            await manager.Playlists.RemoveItems(playlistID, new PlaylistRemoveItemsRequest()
+            {
                 Tracks = new List<PlaylistRemoveItemsRequest.Item>() {
                     new PlaylistRemoveItemsRequest.Item() {
                         Uri = spotifyURI
                     }
                 }
             });
-        }
-
-        public Task Unlike(FullTrack track)
-        {
-            return Unlike(track);
         }
 
         public async Task Unlike(string spotifyID)
