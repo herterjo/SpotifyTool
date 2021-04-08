@@ -1,7 +1,6 @@
 ﻿using SpotifyAPI.Web;
 using SpotifyAPI.Web.Auth;
 using SpotifyTool.Config;
-using SpotifyTool.SpotifyObjects;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,6 +10,9 @@ namespace SpotifyTool.SpotifyAPI
 {
     public class SpotifyAPIManager : ClientManager
     {
+        public const int MaxPlaylistTrackModify = 100;
+        public const int MaxLibraryTrackModify = 50;
+
         private static SpotifyAPIManager _Instance = null;
         public static new SpotifyAPIManager Instance
         {
@@ -81,20 +83,12 @@ namespace SpotifyTool.SpotifyAPI
             OnLogin.Invoke();
         }
 
-        public async Task<IList<SavedTrack>> GetLikedTracks()
-        {
-            PrivateUser user = await this.GetUser();
-            SpotifyClient client = await this.GetSpotifyClient();
-            Paging<SavedTrack> firstPage = await client.Library.GetTracks();
-            return await this.PaginateAll(firstPage);
-        }
-
         public Task<PrivateUser> GetUser()
         {
             return this.GetUser(0);
         }
 
-        public async Task<PrivateUser> GetUser(int retries)
+        private async Task<PrivateUser> GetUser(int retries)
         {
             try
             {
@@ -156,20 +150,17 @@ namespace SpotifyTool.SpotifyAPI
             return await this.PaginateAll(firstPage);
         }
 
-        public async Task BatchAdd(string playlistID, List<string> trackURIs)
+        public async Task AddToPlaylist(string playlistID, List<string> trackURIs)
         {
-            const int spotifyMaxAdd = 100;
             SpotifyClient manager = await this.GetSpotifyClient();
-            ICollection<Task> tasks = new LinkedList<Task>();
-            for (int i = 0; i < trackURIs.Count; i += spotifyMaxAdd)
-            {
-                //i equals taken elements
-                int toTake = trackURIs.Count < (i + spotifyMaxAdd) ? trackURIs.Count - i : spotifyMaxAdd;
-                List<string> toAdd = trackURIs.GetRange(i, toTake);
-                Task<SnapshotResponse> task = manager.Playlists.AddItems(playlistID, new PlaylistAddItemsRequest(toAdd));
-                tasks.Add(task);
-            }
-            await Task.WhenAll(tasks.ToArray());
+            await BatchOperate(trackURIs, MaxPlaylistTrackModify, items => manager.Playlists.AddItems(playlistID, new PlaylistAddItemsRequest(items)));
+        }
+
+        public async Task RemoveFromPlaylist(string playlistID, List<string> spotifyUris)
+        {
+            SpotifyClient manager = await this.GetSpotifyClient();
+            var toRemove = spotifyUris.Select(uri => new PlaylistRemoveItemsRequest.Item() { Uri = uri }).ToList();
+            await BatchOperate(toRemove, MaxPlaylistTrackModify, items => manager.Playlists.RemoveItems(playlistID, new PlaylistRemoveItemsRequest() { Tracks = items }));
         }
 
         public async Task<bool> IsCurrentUserOwner(SimplePlaylist playlist)
@@ -184,23 +175,41 @@ namespace SpotifyTool.SpotifyAPI
             return userPlaylists.Any(p => p.Id == playlistID);
         }
 
-        public async Task RemoveFromPlaylist(string playlistID, string spotifyURI)
+        public async Task<IList<SavedTrack>> GetLikedTracks()
         {
-            SpotifyClient manager = await this.GetSpotifyClient();
-            await manager.Playlists.RemoveItems(playlistID, new PlaylistRemoveItemsRequest()
+            PrivateUser user = await this.GetUser();
+            SpotifyClient client = await this.GetSpotifyClient();
+            Paging<SavedTrack> firstPage = await client.Library.GetTracks(new LibraryTracksRequest()
             {
-                Tracks = new List<PlaylistRemoveItemsRequest.Item>() {
-                    new PlaylistRemoveItemsRequest.Item() {
-                        Uri = spotifyURI
-                    }
-                }
+                Market = user.Country
             });
+            return await this.PaginateAll(firstPage);
         }
 
-        public async Task Unlike(string spotifyID)
+        public async Task UnlikeTracks(List<string> spotifyIDs)
         {
             SpotifyClient manager = await this.GetSpotifyClient();
-            await manager.Library.RemoveTracks(new LibraryRemoveTracksRequest(new List<string>() { spotifyID }));
+            await BatchOperate(spotifyIDs, MaxLibraryTrackModify, items => manager.Library.RemoveTracks(new LibraryRemoveTracksRequest(items)));
+        }
+
+        public async Task LikeTracks(List<string> spotifyIDs)
+        {
+            SpotifyClient manager = await this.GetSpotifyClient();
+            await BatchOperate(spotifyIDs, MaxLibraryTrackModify, items => manager.Library.SaveTracks(new LibrarySaveTracksRequest(items)));
+        }
+
+        private async Task BatchOperate<T>(List<T> items, int maxPerRequest, Func<List<T>, Task> executeFunction)
+        {
+            ICollection<Task> tasks = new LinkedList<Task>();
+            for (int i = 0; i < items.Count; i += MaxPlaylistTrackModify)
+            {
+                //i equals taken elements
+                int toTake = items.Count < (i + maxPerRequest) ? items.Count - i : maxPerRequest;
+                List<T> toUseInRequest = items.GetRange(i, toTake);
+                Task task = executeFunction(items);
+                tasks.Add(task);
+            }
+            await Task.WhenAll(tasks.ToArray());
         }
     }
 }

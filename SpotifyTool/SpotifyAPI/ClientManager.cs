@@ -37,8 +37,8 @@ namespace SpotifyTool.SpotifyAPI
                 SpotifyClientConfig clientConfig = SpotifyClientConfig
                     .CreateDefault()
                     .WithAuthenticator(new ClientCredentialsAuthenticator(clientIDAndSecret.Key, clientIDAndSecret.Value));
-                this.SpotifyClient = new SpotifyClient(clientConfig);
-                AfterClientChange.Invoke();
+                SpotifyClient client = new SpotifyClient(clientConfig);
+                this.SetSpotifyClient(client);
             }
             return this.SpotifyClient;
         }
@@ -46,7 +46,7 @@ namespace SpotifyTool.SpotifyAPI
         protected void SetSpotifyClient(SpotifyClient client)
         {
             this.SpotifyClient = client ?? throw new ArgumentNullException(nameof(client));
-            AfterClientChange.Invoke();
+            AfterClientChange?.Invoke();
         }
     }
 }

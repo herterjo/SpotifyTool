@@ -47,9 +47,10 @@ namespace SpotifyTool
                 Console.WriteLine("3) Get double tracks in playlist");
                 Console.WriteLine("4) Get double artists in playlist (one time transitive)");
                 Console.WriteLine("5) Sync main playlist with ArtistOnlyOnce playlist");
-                Console.WriteLine("6) Refresh all cached user playlists");
-                Console.WriteLine("7) Log in");
-                Console.WriteLine("8) Edit Playlist");
+                Console.WriteLine("6) Cross check users library with playlist");
+                Console.WriteLine("7) Refresh all cached playlists and current library");
+                Console.WriteLine("8) Log in");
+                Console.WriteLine("9) Edit Playlist");
                 string option = Console.ReadLine();
                 uint optionInt;
                 if (!UInt32.TryParse(option, out optionInt))
@@ -84,12 +85,16 @@ namespace SpotifyTool
                         await Sync(ids.Key, ids.Value);
                         break;
                     case 6:
-                        await PlaylistManager.RefreshAllUserPlaylists();
+                        SimplePlaylist ccPL = await ChoosePlaylistFromUserPlaylists();
+                        await CrossCheckLikedAndPlaylist(ccPL, null);
                         break;
                     case 7:
-                        await SpotifyAPIManager.Instance.LogInRequest();
+                        await RefreshAllUserPlaylistsAndLibraryTracks();
                         break;
                     case 8:
+                        await SpotifyAPIManager.Instance.LogInRequest();
+                        break;
+                    case 9:
 
                     default:
                         Console.WriteLine("Number not recognized for menu");
@@ -203,10 +208,12 @@ namespace SpotifyTool
         {
             await PlaylistManager.RefreshSinglePlaylist(mainID);
             await PlaylistManager.RefreshSinglePlaylist(secondID);
+            await LibraryManager.RefreshLibraryTracksForCurrentUser();
             await PrintNonPlayableTracks(null, mainID);
             await PrintNonPlayableTracks(null, secondID);
             await CheckDoubleTracks(null, mainID);
             await CheckDoubleTracks(null, secondID);
+            await CrossCheckLikedAndPlaylist(null, mainID);
             await FindDoubleArtists(secondID);
             await Sync(mainID, secondID);
         }
@@ -273,6 +280,44 @@ namespace SpotifyTool
             {
                 Console.WriteLine(ex.Message);
             }
+        }
+
+        public static Task RefreshAllUserPlaylistsAndLibraryTracks()
+        {
+            return Task.WhenAll(PlaylistManager.RefreshAllUserPlaylists(), LibraryManager.RefreshLibraryTracksIfCached());
+        }
+
+        public static async Task CrossCheckLikedAndPlaylist(SimplePlaylist playlist, string playlistID)
+        {
+            if (playlistID == null)
+            {
+                playlistID = playlist.Id;
+            }
+            var tracks = await Analytics.CrossCheckLikedAndPlaylist(playlist, playlistID);
+            await LogFileManager.WriteToLogAndConsole("Tracks not in library but in playlist " + playlistID + ":");
+            if (tracks.Value.Any())
+            {
+                string notInLib = StringConverter.AllTracksToString("\n", tracks.Value.Select(fpt => fpt.TrackInfo).ToArray());
+                await LogFileManager.WriteToLogAndConsole(notInLib);
+            }
+            else
+            {
+                await LogFileManager.WriteToLogAndConsole("None");
+            }
+
+            await LogFileManager.WriteToLogAndConsole("\n");
+
+            await LogFileManager.WriteToLogAndConsole("Tracks not in playlist " + playlistID + " but in library:");
+            if (tracks.Key.Any())
+            {
+                string notInPl = StringConverter.AllTracksToString("\n", tracks.Key.Select(fpt => fpt.Track).ToArray());
+                await LogFileManager.WriteToLogAndConsole(notInPl);
+            }
+            else
+            {
+                await LogFileManager.WriteToLogAndConsole("None");
+            }
+
         }
     }
 }

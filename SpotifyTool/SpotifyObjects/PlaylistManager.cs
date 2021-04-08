@@ -60,7 +60,7 @@ namespace SpotifyTool.SpotifyObjects
                 path = GetPlaylistFileName(playlistID);
             }
 
-            var allPlaylistTracks = GetPlaylistTracks(allItems);
+            List<FullPlaylistTrack> allPlaylistTracks = GetPlaylistTracks(allItems);
             string playlistJSON = JsonConvert.SerializeObject(allPlaylistTracks);
             await File.WriteAllTextAsync(path, playlistJSON);
             return allPlaylistTracks;
@@ -102,7 +102,7 @@ namespace SpotifyTool.SpotifyObjects
             {
                 fn = GetPlaylistFileName(playlistID);
             }
-            if (!File.Exists(fn))
+            if (File.Exists(fn))
             {
                 string content = await File.ReadAllTextAsync(fn);
                 return JsonConvert.DeserializeObject<List<FullPlaylistTrack>>(content);

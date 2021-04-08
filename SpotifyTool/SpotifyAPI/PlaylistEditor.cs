@@ -59,37 +59,38 @@ namespace SpotifyTool.SpotifyAPI
             this.Valid = await SpotifyAPIManager.Instance.IsCurrentUserOwner(this.PlaylistID);
         }
 
-        public Task Remove(string spotifyURI)
+        public Task Remove(List<string> spotifyUris)
         {
             this.ThrowIfNotValid();
-            return SpotifyAPIManager.Instance.RemoveFromPlaylist(this.PlaylistID, spotifyURI);
+            return SpotifyAPIManager.Instance.RemoveFromPlaylist(this.PlaylistID, spotifyUris);
         }
 
-        public Task Remove(FullTrack track)
+        public Task Remove(List<FullTrack> tracks)
         {
-            return this.Remove(track.Uri);
+            var spotifyUris = tracks.Select(t => t.Uri).ToList();
+            return this.Remove(spotifyUris);
         }
 
-        public Task RemoveAndUnlike(string spotifyURI)
+        public Task RemoveAndUnlike(List<string> spotifyUris)
         {
             this.ThrowIfNotValid();
-            Task removeTask = this.Remove(spotifyURI);
-            Task unlikeTask = SpotifyAPIManager.Instance.Unlike(StringConverter.GetId(spotifyURI));
+            Task removeTask = this.Remove(spotifyUris);
+            Task unlikeTask = LibraryManager.UnlikeTracks(spotifyUris);
             return Task.WhenAll(removeTask, unlikeTask);
         }
 
-        public Task RemoveAndUnlike(FullTrack track)
+        public Task RemoveAndUnlike(List<FullTrack> tracks)
         {
             this.ThrowIfNotValid();
-            Task removeTask = this.Remove(track.Uri);
-            Task unlikeTask = SpotifyAPIManager.Instance.Unlike(track.Id);
+            Task removeTask = this.Remove(tracks);
+            Task unlikeTask = LibraryManager.UnlikeTracks(tracks);
             return Task.WhenAll(removeTask, unlikeTask);
         }
 
         public Task BatchAdd(List<string> trackUris)
         {
             this.ThrowIfNotValid();
-            return SpotifyAPIManager.Instance.BatchAdd(this.PlaylistID, trackUris);
+            return SpotifyAPIManager.Instance.AddToPlaylist(this.PlaylistID, trackUris);
         }
 
         public Task BatchAdd(List<FullTrack> tracks)

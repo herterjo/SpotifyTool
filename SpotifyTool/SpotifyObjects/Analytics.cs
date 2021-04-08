@@ -102,5 +102,37 @@ namespace SpotifyTool.SpotifyObjects
             }
             return toAddLinked;
         }
+
+        public static async Task<KeyValuePair<List<SavedTrack>, List<FullPlaylistTrack>>> CrossCheckLikedAndPlaylist(SimplePlaylist playlist, string playlistId)
+        {
+            Task<List<FullPlaylistTrack>> playlistTrackTask;
+            if (playlist != null)
+            {
+                playlistTrackTask = PlaylistManager.GetAllPlaylistTracks(playlist);
+            }
+            else
+            {
+                playlistTrackTask = PlaylistManager.GetAllPlaylistTracks(playlistId);
+            }
+
+            Task<List<SavedTrack>> libraryTracksTask = LibraryManager.GetLibraryTracksForCurrentUser();
+            await Task.WhenAll(playlistTrackTask, libraryTracksTask);
+            List<FullPlaylistTrack> playlistTracks = playlistTrackTask.Result;
+            List<SavedTrack> libraryTracks = libraryTracksTask.Result;
+            Dictionary<string, FullPlaylistTrack> playlistDict = playlistTracks.Distinct(FullPlaylistTrackEqualityComparerByTrackInfo.Instance).ToDictionary(fpt => fpt.TrackInfo.Uri, fpt => fpt);
+            List<FullTrack> fullTracksFromPL = PlaylistManager.GetAllPlaylistTrackInfo(playlistTracks);
+
+            Dictionary<string, SavedTrack> libraryDict = libraryTracks.ToDictionary(st => st.Track.Uri, st => st);
+            List<FullTrack> fullTracksFromLibrary = LibraryManager.GetFullTracks(libraryTracks);
+            List<FullTrack> missingFromPL = fullTracksFromLibrary.Except(fullTracksFromPL, FullTrackEqualityComparer.Instance).ToList();
+            if (missingFromPL.Count < 1 && fullTracksFromLibrary.Count == fullTracksFromPL.Count)
+            {
+                return new KeyValuePair<List<SavedTrack>, List<FullPlaylistTrack>>(new List<SavedTrack>(), new List<FullPlaylistTrack>());
+            }
+            List<FullTrack> missingFromLibrary = fullTracksFromPL.Except(fullTracksFromLibrary, FullTrackEqualityComparer.Instance).ToList();
+            return new KeyValuePair<List<SavedTrack>, List<FullPlaylistTrack>>(
+                missingFromLibrary.Select(ft => libraryDict[ft.Uri]).ToList(),
+                missingFromPL.Select(ft => playlistDict[ft.Uri]).ToList());
+        }
     }
 }
