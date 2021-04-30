@@ -15,5 +15,9 @@ namespace SpotifyTool.SpotifyObjects
             this.PlaylistInfo = playlistInfo;
             this.TrackInfo = trackInfo;
         }
+
+        private FullPlaylistTrack()
+        {
+        }
     }
 }

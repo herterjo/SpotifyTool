@@ -36,12 +36,24 @@ namespace SpotifyTool.SpotifyObjects
         public static async Task<FullTrack[]> GetDoubleTracks(SimplePlaylist pl, string playlistID)
         {
             List<FullTrack> allPlaylistTracks = await GetAllPlaylistTracks(pl, playlistID);
-            FullTrack[] allSameTracks = allPlaylistTracks
+            return CheckDouble(allPlaylistTracks);
+        }
+
+        private static FullTrack[] CheckDouble(List<FullTrack> allPlaylistTracks)
+        {
+            //There is probably a more efficient method
+            return allPlaylistTracks
                 .Where(t1 => allPlaylistTracks
                     .Any(t2 => t2.Id != t1.Id && t1.Uri != t2.Uri && t1.Name.ToLower().StartsWith(t2.Name.ToLower()) && t1.Artists
                         .Select(a => a.Id).Any(aID => t2.Artists.Select(a => a.Id).Contains(aID))))
                 .Distinct().OrderBy(t => t.Name).ToArray();
-            return allSameTracks;
+        }
+
+        public static async Task<FullTrack[]> GetDoubleLibraryTracks()
+        {
+            var tracks = await LibraryManager.GetLibraryTracksForCurrentUser();
+            var fullTracks = LibraryManager.GetFullTracks(tracks);
+            return CheckDouble(fullTracks);
         }
 
         public static List<FullTrack> GetDoubleArtistsTracks(List<FullTrack> tracksToAnalyze)
@@ -122,7 +134,7 @@ namespace SpotifyTool.SpotifyObjects
             Dictionary<string, FullPlaylistTrack> playlistDict = playlistTracks.Distinct(FullPlaylistTrackEqualityComparerByTrackInfo.Instance).ToDictionary(fpt => fpt.TrackInfo.Uri, fpt => fpt);
             List<FullTrack> fullTracksFromPL = PlaylistManager.GetAllPlaylistTrackInfo(playlistTracks);
 
-            Dictionary<string, SavedTrack> libraryDict = libraryTracks.ToDictionary(st => st.Track.Uri, st => st);
+            Dictionary<string, SavedTrack> libraryDict = libraryTracks.Distinct(SavedTrackComparerByUri.Instance).ToDictionary(st => st.Track.Uri, st => st);
             List<FullTrack> fullTracksFromLibrary = LibraryManager.GetFullTracks(libraryTracks);
             List<FullTrack> missingFromPL = fullTracksFromLibrary.Except(fullTracksFromPL, FullTrackEqualityComparer.Instance).ToList();
             if (missingFromPL.Count < 1 && fullTracksFromLibrary.Count == fullTracksFromPL.Count)
@@ -131,8 +143,8 @@ namespace SpotifyTool.SpotifyObjects
             }
             List<FullTrack> missingFromLibrary = fullTracksFromPL.Except(fullTracksFromLibrary, FullTrackEqualityComparer.Instance).ToList();
             return new KeyValuePair<List<SavedTrack>, List<FullPlaylistTrack>>(
-                missingFromLibrary.Select(ft => libraryDict[ft.Uri]).ToList(),
-                missingFromPL.Select(ft => playlistDict[ft.Uri]).ToList());
+                missingFromPL.Select(ft => libraryDict[ft.Uri]).ToList(),
+                missingFromLibrary.Select(ft => playlistDict[ft.Uri]).ToList());
         }
     }
 }

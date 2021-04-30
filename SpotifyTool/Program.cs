@@ -48,10 +48,11 @@ namespace SpotifyTool
                 Console.WriteLine("3) Get double tracks in playlist");
                 Console.WriteLine("4) Get double artists in playlist (one time transitive)");
                 Console.WriteLine("5) Sync main playlist with ArtistOnlyOnce playlist");
-                Console.WriteLine("6) Cross check users library with playlist");
-                Console.WriteLine("7) Refresh all cached playlists and current library");
-                Console.WriteLine("8) Log in");
-                Console.WriteLine("9) Edit Playlist");
+                Console.WriteLine("6) Get double tracks in library");
+                Console.WriteLine("7) Cross check users library with playlist");
+                Console.WriteLine("8) Refresh all cached playlists and current library");
+                Console.WriteLine("9) Log in");
+                Console.WriteLine("10) Edit Playlist");
                 string option = Console.ReadLine();
                 uint optionInt;
                 if (!UInt32.TryParse(option, out optionInt))
@@ -86,17 +87,19 @@ namespace SpotifyTool
                         await Sync(ids.Key, ids.Value);
                         break;
                     case 6:
+                        await CheckDoubleLibraryTracks();
+                        break;
+                    case 7:
                         SimplePlaylist ccPL = await ChoosePlaylistFromUserPlaylists();
                         await CrossCheckLikedAndPlaylist(ccPL, null);
                         break;
-                    case 7:
+                    case 8:
                         await RefreshAllUserPlaylistsAndLibraryTracks();
                         break;
-                    case 8:
+                    case 9:
                         await SpotifyAPIManager.Instance.LogInRequest();
                         break;
-                    case 9:
-
+                    case 10:
                     default:
                         Console.WriteLine("Number not recognized for menu");
                         break;
@@ -214,6 +217,7 @@ namespace SpotifyTool
             await PrintNonPlayableTracks(null, secondID);
             await CheckDoubleTracks(null, mainID);
             await CheckDoubleTracks(null, secondID);
+            await CheckDoubleLibraryTracks();
             await CrossCheckLikedAndPlaylist(null, mainID);
             await FindDoubleArtists(secondID);
             await Sync(mainID, secondID);
@@ -264,13 +268,14 @@ namespace SpotifyTool
 
             Console.WriteLine("Would you like to add the playlist items now to playlist " + secondPLID + "? (y/n)");
             string answer = Console.ReadLine();
+            await LogFileManager.WriteToLogAndConsole("\n");
             if (answer != "y")
             {
                 return;
             }
             string addedJSON = JsonConvert.SerializeObject(toAdd);
             await File.WriteAllTextAsync("allBatchAddedTracks.json", addedJSON);
-            Serialization.SerializeBinary(toAdd, "allBatchAddedTracks.binary");
+            Serialization.SerializeBinary(toAdd, "allBatchAddedTracks");
             try
             {
                 using (var plManager = await PlaylistEditor.GetPlaylistEditor(secondPLID))
@@ -319,7 +324,23 @@ namespace SpotifyTool
             {
                 await LogFileManager.WriteToLogAndConsole("None");
             }
+            await LogFileManager.WriteToLogAndConsole("\n");
+        }
 
+        public static async Task CheckDoubleLibraryTracks()
+        {
+            var doubleTracks = await Analytics.GetDoubleLibraryTracks();
+            await LogFileManager.WriteToLogAndConsole("Tracks double in library:");
+            if (doubleTracks.Any())
+            {
+                string doubleTracksString = StringConverter.AllTracksToString("\n", doubleTracks);
+                await LogFileManager.WriteToLogAndConsole(doubleTracksString);
+            }
+            else
+            {
+                await LogFileManager.WriteToLogAndConsole("None");
+            }
+            await LogFileManager.WriteToLogAndConsole("\n");
         }
     }
 }

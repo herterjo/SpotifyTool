@@ -10,7 +10,7 @@ namespace SpotifyTool.SpotifyObjects
 {
     public static class PlaylistManager
     {
-        public const string PlaylistFileEnding = ".playlist";
+        public const string PlaylistFileEnding = ".playlist.proto";
 
         private static string GetPlaylistFileName(SimplePlaylist pl)
         {

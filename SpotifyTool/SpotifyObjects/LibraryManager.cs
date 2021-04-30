@@ -10,7 +10,7 @@ namespace SpotifyTool.SpotifyObjects
 {
     public static class LibraryManager
     {
-        public const string LibraryFileEnding = ".library";
+        public const string LibraryFileEnding = ".library.proto";
 
         private static string GetLibraryFileName(PrivateUser user)
         {
