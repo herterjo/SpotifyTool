@@ -1,5 +1,5 @@
-﻿using Newtonsoft.Json;
-using SpotifyAPI.Web;
+﻿using SpotifyAPI.Web;
+using SpotifyTool.Config;
 using SpotifyTool.SpotifyAPI;
 using System.Collections.Generic;
 using System.IO;
@@ -10,7 +10,7 @@ namespace SpotifyTool.SpotifyObjects
 {
     public static class LibraryManager
     {
-        public const string LibraryFileEnding = ".library.json";
+        public const string LibraryFileEnding = ".library";
 
         private static string GetLibraryFileName(PrivateUser user)
         {
@@ -39,9 +39,10 @@ namespace SpotifyTool.SpotifyObjects
             SpotifyAPIManager clientManager = SpotifyAPIManager.Instance;
             IList<SavedTrack> savedTracks = await clientManager.GetLikedTracks();
             List<SavedTrack> savedTracksList = savedTracks.ToList();
-            string tracksAsJSON = JsonConvert.SerializeObject(savedTracksList);
+            //string tracksAsJSON = JsonConvert.SerializeObject(savedTracksList);
             string path = GetLibraryFileName(user);
-            await File.WriteAllTextAsync(path, tracksAsJSON);
+            Serialization.SerializeBinary(savedTracksList, path);
+            //await File.WriteAllTextAsync(path, tracksAsJSON);
             return savedTracksList;
         }
 
@@ -57,8 +58,9 @@ namespace SpotifyTool.SpotifyObjects
             string fn = GetLibraryFileName(user);
             if (File.Exists(fn))
             {
-                string content = await File.ReadAllTextAsync(fn);
-                return JsonConvert.DeserializeObject<List<SavedTrack>>(content);
+                //string content = await File.ReadAllTextAsync(fn);
+                return Serialization.DeserializeBinary<List<SavedTrack>>(fn);
+                //return JsonConvert.DeserializeObject<List<SavedTrack>>(content);
             }
             return await RefreshLibraryTracksForCurrentUser();
         }
@@ -78,28 +80,28 @@ namespace SpotifyTool.SpotifyObjects
         public static Task UnlikeTracks(List<FullTrack> tracks)
         {
             SpotifyAPIManager clientManager = SpotifyAPIManager.Instance;
-            var trackIds = tracks.Select(t => t.Id).ToList();
+            List<string> trackIds = tracks.Select(t => t.Id).ToList();
             return clientManager.UnlikeTracks(trackIds);
         }
 
         public static Task LikeTracks(List<FullTrack> tracks)
         {
             SpotifyAPIManager clientManager = SpotifyAPIManager.Instance;
-            var trackIds = tracks.Select(t => t.Id).ToList();
+            List<string> trackIds = tracks.Select(t => t.Id).ToList();
             return clientManager.LikeTracks(trackIds);
         }
 
         public static Task UnlikeTracks(List<string> spotifyUri)
         {
             SpotifyAPIManager clientManager = SpotifyAPIManager.Instance;
-            var trackIds = spotifyUri.Select(uri => StringConverter.GetId(uri)).ToList();
+            List<string> trackIds = spotifyUri.Select(uri => StringConverter.GetId(uri)).ToList();
             return clientManager.UnlikeTracks(trackIds);
         }
 
         public static Task LikeTracks(List<string> spotifyUri)
         {
             SpotifyAPIManager clientManager = SpotifyAPIManager.Instance;
-            var trackIds = spotifyUri.Select(uri => StringConverter.GetId(uri)).ToList();
+            List<string> trackIds = spotifyUri.Select(uri => StringConverter.GetId(uri)).ToList();
             return clientManager.LikeTracks(trackIds);
         }
     }

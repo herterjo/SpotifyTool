@@ -7,11 +7,9 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\SpotifyAPI-NET\SpotifyAPI.Web.Auth\SpotifyAPI.Web.Auth.csproj" />
-    <ProjectReference Include="..\..\SpotifyAPI-NET\SpotifyAPI.Web\SpotifyAPI.Web.csproj" />
+    <PackageReference Include="protobuf-net" Version="3.0.101" />
+    <PackageReference Include="SpotifyAPI.Web" Version="6.2.0" />
+    <PackageReference Include="SpotifyAPI.Web.Auth" Version="6.2.0" />
   </ItemGroup>
 
   <ItemGroup>

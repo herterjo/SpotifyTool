@@ -19,6 +19,7 @@ namespace SpotifyTool
 
         public static void Main(string[] args)
         {
+            Serialization.Init();
             LogFileManager = LogFileManager.GetNewManager("logfile.txt").Result;
 #if !DEBUG
             try
@@ -269,6 +270,7 @@ namespace SpotifyTool
             }
             string addedJSON = JsonConvert.SerializeObject(toAdd);
             await File.WriteAllTextAsync("allBatchAddedTracks.json", addedJSON);
+            Serialization.SerializeBinary(toAdd, "allBatchAddedTracks.binary");
             try
             {
                 using (var plManager = await PlaylistEditor.GetPlaylistEditor(secondPLID))

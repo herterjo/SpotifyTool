@@ -1,5 +1,5 @@
-﻿using Newtonsoft.Json;
-using SpotifyAPI.Web;
+﻿using SpotifyAPI.Web;
+using SpotifyTool.Config;
 using SpotifyTool.SpotifyAPI;
 using System.Collections.Generic;
 using System.IO;
@@ -10,7 +10,7 @@ namespace SpotifyTool.SpotifyObjects
 {
     public static class PlaylistManager
     {
-        public const string PlaylistFileEnding = ".playlist.json";
+        public const string PlaylistFileEnding = ".playlist";
 
         private static string GetPlaylistFileName(SimplePlaylist pl)
         {
@@ -61,8 +61,9 @@ namespace SpotifyTool.SpotifyObjects
             }
 
             List<FullPlaylistTrack> allPlaylistTracks = GetPlaylistTracks(allItems);
-            string playlistJSON = JsonConvert.SerializeObject(allPlaylistTracks);
-            await File.WriteAllTextAsync(path, playlistJSON);
+            //string playlistJSON = JsonConvert.SerializeObject(allPlaylistTracks);
+            //await File.WriteAllTextAsync(path, playlistJSON);
+            Serialization.SerializeBinary(allPlaylistTracks, path);
             return allPlaylistTracks;
         }
 
@@ -104,8 +105,9 @@ namespace SpotifyTool.SpotifyObjects
             }
             if (File.Exists(fn))
             {
-                string content = await File.ReadAllTextAsync(fn);
-                return JsonConvert.DeserializeObject<List<FullPlaylistTrack>>(content);
+                return Serialization.DeserializeBinary<List<FullPlaylistTrack>>(fn);
+                //string content = await File.ReadAllTextAsync(fn);
+                //return JsonConvert.DeserializeObject<List<FullPlaylistTrack>>(content);
             }
             if (pl != null)
             {
