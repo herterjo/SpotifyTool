@@ -1,5 +1,6 @@
 ﻿using SpotifyTool.ConsoleMenu;
 using SpotifyTool.Logger;
+using System;
 
 namespace SpotifyTool
 {

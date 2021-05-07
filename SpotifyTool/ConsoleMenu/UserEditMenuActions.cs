@@ -89,11 +89,12 @@ namespace SpotifyTool.ConsoleMenu
                 Console.WriteLine("Nothing entered");
                 return;
             }
+            searchString = searchString.ToLowerInvariant();
             List<FullTrack> allTracks = await getFullTracks(searchString);
-            FullTrack[] found = allTracks.Where(t => t.Uri.Contains(searchString)
-                    || t.Name.Contains(searchString)
-                    || t.Artists.Any(a => a.Name.Contains(searchString))
-                    || t.Album.Name.Contains(searchString))
+            FullTrack[] found = allTracks.Where(t => t.Uri.ToLowerInvariant().Contains(searchString)
+                    || t.Name.ToLowerInvariant().Contains(searchString)
+                    || t.Artists.Any(a => a.Name.ToLowerInvariant().Contains(searchString))
+                    || t.Album.Name.ToLowerInvariant().Contains(searchString))
                 .ToArray();
             Console.WriteLine(StringConverter.AllTracksToString("\n", found));
         }
