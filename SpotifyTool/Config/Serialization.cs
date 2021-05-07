@@ -1,55 +1,37 @@
-﻿using ProtoBuf;
-using ProtoBuf.Meta;
-using SpotifyAPI.Web;
-using SpotifyTool.SpotifyObjects;
-using System;
+﻿using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Text;
+using System.Threading.Tasks;
 
 namespace SpotifyTool.Config
 {
     public static class Serialization
     {
-        private readonly static Dictionary<string, object> Cache = new Dictionary<string, object>();
+        private readonly static Dictionary<string, object> ReadonlyCache = new Dictionary<string, object>();
 
-        public static void Init()
+        public static Task SerializeJson(object obj, string fileName, bool isMutable = true)
         {
-            //RuntimeTypeModel.Default.InferTagFromNameDefault = true;
-            //RuntimeTypeModel.Default.AutoAddMissingTypes = true;
-            //RuntimeTypeModel.Default.AutoAddProtoContractTypesOnly = false;
-            //RuntimeTypeModel.Default.AutoCompile = true;
-            ////var t = System.Reflection.Assembly.GetAssembly(typeof(FullTrack)).DefinedTypes.ToList();
-            //var spotifyTypes = System.Reflection.Assembly.GetAssembly(typeof(FullTrack)).DefinedTypes
-            //    .Where(dt => dt.FullName.StartsWith("SpotifyAPI.Web") && dt.UnderlyingSystemType != null).ToList();
-            //var ownTypes = System.Reflection.Assembly.GetAssembly(typeof(Serialization)).DefinedTypes
-            //    .Where(dt => dt.FullName.StartsWith("SpotifyTool") && dt.UnderlyingSystemType != null).ToList();
-            //var allTypes = spotifyTypes.Concat(ownTypes).ToList();
-            //foreach (var typeInfo in allTypes)
-            //{
-            //    RuntimeTypeModel.Default.Add(typeInfo.UnderlyingSystemType, true);
-            //}
+            if (!isMutable)
+            {
+                ReadonlyCache[fileName] = obj;
+            }
+            string json = JsonConvert.SerializeObject(obj);
+            return File.WriteAllTextAsync(fileName, json);
         }
-
-        public static void SerializeBinary(object obj, string fileName)
+        public async static Task<T> DeserializeJson<T>(string fileName, bool isMutable = true)
         {
-            Cache[fileName] = obj;
-            //using (var s = File.Open(fileName, FileMode.Create))
-            //{
-            //    //BinaryFormatter b = new BinaryFormatter();
-            //    RuntimeTypeModel.Default.Serialize(s, obj);
-            //}
-        }
-        public static T DeserializeBinary<T>(string fileName)
-        {
-            return (T)Cache[fileName];
-            //using (var s = File.Open(fileName, FileMode.Open))
-            //{
-            //    //BinaryFormatter b = new BinaryFormatter();
-            //    return (T)RuntimeTypeModel.Default.Deserialize<T>(s);
-            //}
+            object outValue;
+            if (!isMutable && ReadonlyCache.TryGetValue(fileName, out outValue))
+            {
+                return (T)outValue;
+            }
+            string json = await File.ReadAllTextAsync(fileName);
+            var outValueCasted = JsonConvert.DeserializeObject<T>(json);
+            if (!isMutable)
+            {
+                ReadonlyCache[fileName] = outValueCasted;
+            }
+            return outValueCasted;
         }
     }
 }

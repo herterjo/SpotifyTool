@@ -1,5 +1,4 @@
-﻿using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -17,14 +16,12 @@ namespace SpotifyTool.Config
                 await Write(newConfig);
                 return newConfig;
             }
-            string fileContent = await File.ReadAllTextAsync(ConfigFileName);
-            return JsonConvert.DeserializeObject<ConfigContent>(fileContent);
+            return await Serialization.DeserializeJson<ConfigContent>(ConfigFileName);
         }
 
-        public static async Task Write(ConfigContent config)
+        public static Task Write(ConfigContent config)
         {
-            string fileText = JsonConvert.SerializeObject(config);
-            await File.WriteAllTextAsync(ConfigFileName, fileText);
+            return Serialization.SerializeJson(config, ConfigFileName);
         }
 
         private static async Task<string> GetFromConfigOrConsole(Func<ConfigContent, string> configGetter, string printLn, ConfigContent appConfig = null)

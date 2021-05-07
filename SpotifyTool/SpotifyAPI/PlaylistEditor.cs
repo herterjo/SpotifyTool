@@ -71,6 +71,17 @@ namespace SpotifyTool.SpotifyAPI
             return this.Remove(spotifyUris);
         }
 
+        public Task Add(List<string> trackUris)
+        {
+            this.ThrowIfNotValid();
+            return SpotifyAPIManager.Instance.AddToPlaylist(this.PlaylistID, trackUris);
+        }
+
+        public Task Add(List<FullTrack> tracks)
+        {
+            return this.Add(tracks.Select(t => t.Uri).ToList());
+        }
+
         public Task RemoveAndUnlike(List<string> spotifyUris)
         {
             this.ThrowIfNotValid();
@@ -87,15 +98,20 @@ namespace SpotifyTool.SpotifyAPI
             return Task.WhenAll(removeTask, unlikeTask);
         }
 
-        public Task BatchAdd(List<string> trackUris)
+        public Task AddAndLike(List<string> spotifyUris)
         {
             this.ThrowIfNotValid();
-            return SpotifyAPIManager.Instance.AddToPlaylist(this.PlaylistID, trackUris);
+            Task addTask = this.Add(spotifyUris);
+            Task likeTask = LibraryManager.LikeTracks(spotifyUris);
+            return Task.WhenAll(addTask, likeTask);
         }
 
-        public Task BatchAdd(List<FullTrack> tracks)
+        public Task AddAndLike(List<FullTrack> tracks)
         {
-            return this.BatchAdd(tracks.Select(t => t.Uri).ToList());
+            this.ThrowIfNotValid();
+            Task addTask = this.Add(tracks);
+            Task likeTask = LibraryManager.LikeTracks(tracks);
+            return Task.WhenAll(addTask, likeTask);
         }
 
         #region IDisposable Support

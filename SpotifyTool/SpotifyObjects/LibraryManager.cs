@@ -10,7 +10,7 @@ namespace SpotifyTool.SpotifyObjects
 {
     public static class LibraryManager
     {
-        public const string LibraryFileEnding = ".library.proto";
+        public const string LibraryFileEnding = ".library.json";
 
         private static string GetLibraryFileName(PrivateUser user)
         {
@@ -41,7 +41,7 @@ namespace SpotifyTool.SpotifyObjects
             List<SavedTrack> savedTracksList = savedTracks.ToList();
             //string tracksAsJSON = JsonConvert.SerializeObject(savedTracksList);
             string path = GetLibraryFileName(user);
-            Serialization.SerializeBinary(savedTracksList, path);
+            await Serialization.SerializeJson(savedTracksList, path, false);
             //await File.WriteAllTextAsync(path, tracksAsJSON);
             return savedTracksList;
         }
@@ -53,16 +53,16 @@ namespace SpotifyTool.SpotifyObjects
             return await GetLibraryTracksForCurrentUser(user);
         }
 
-        private static async Task<List<SavedTrack>> GetLibraryTracksForCurrentUser(PrivateUser user)
+        private static Task<List<SavedTrack>> GetLibraryTracksForCurrentUser(PrivateUser user)
         {
             string fn = GetLibraryFileName(user);
             if (File.Exists(fn))
             {
                 //string content = await File.ReadAllTextAsync(fn);
-                return Serialization.DeserializeBinary<List<SavedTrack>>(fn);
+                return Serialization.DeserializeJson<List<SavedTrack>>(fn, false);
                 //return JsonConvert.DeserializeObject<List<SavedTrack>>(content);
             }
-            return await RefreshLibraryTracksForCurrentUser();
+            return RefreshLibraryTracksForCurrentUser();
         }
 
         public static async Task RefreshLibraryTracksIfCached()

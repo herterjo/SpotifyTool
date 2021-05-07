@@ -10,7 +10,7 @@ namespace SpotifyTool.SpotifyObjects
 {
     public static class PlaylistManager
     {
-        public const string PlaylistFileEnding = ".playlist.proto";
+        public const string PlaylistFileEnding = ".playlist.json";
 
         private static string GetPlaylistFileName(SimplePlaylist pl)
         {
@@ -63,7 +63,7 @@ namespace SpotifyTool.SpotifyObjects
             List<FullPlaylistTrack> allPlaylistTracks = GetPlaylistTracks(allItems);
             //string playlistJSON = JsonConvert.SerializeObject(allPlaylistTracks);
             //await File.WriteAllTextAsync(path, playlistJSON);
-            Serialization.SerializeBinary(allPlaylistTracks, path);
+            await Serialization.SerializeJson(allPlaylistTracks, path, false);
             return allPlaylistTracks;
         }
 
@@ -92,7 +92,7 @@ namespace SpotifyTool.SpotifyObjects
             return playlist.Select(fpt => fpt.TrackInfo).ToList();
         }
 
-        private static async Task<List<FullPlaylistTrack>> GetAllPlaylistTracks(SimplePlaylist pl, string playlistID)
+        private static Task<List<FullPlaylistTrack>> GetAllPlaylistTracks(SimplePlaylist pl, string playlistID)
         {
             string fn;
             if (pl != null)
@@ -105,17 +105,17 @@ namespace SpotifyTool.SpotifyObjects
             }
             if (File.Exists(fn))
             {
-                return Serialization.DeserializeBinary<List<FullPlaylistTrack>>(fn);
+                return Serialization.DeserializeJson<List<FullPlaylistTrack>>(fn, false);
                 //string content = await File.ReadAllTextAsync(fn);
                 //return JsonConvert.DeserializeObject<List<FullPlaylistTrack>>(content);
             }
             if (pl != null)
             {
-                return await RefreshSinglePlaylist(pl);
+                return RefreshSinglePlaylist(pl);
             }
             else
             {
-                return await RefreshSinglePlaylist(playlistID);
+                return RefreshSinglePlaylist(playlistID);
             }
 
         }
