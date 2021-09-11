@@ -12,7 +12,7 @@ namespace SpotifyTool.ConsoleMenu
 
         private UserEditMenu(UserEditMenuActions playlistEditMenuActions) : base(new List<KeyValuePair<string, Func<Task>>>() {
                     new KeyValuePair<string, Func<Task>>("Like and add", playlistEditMenuActions.LikeAndAdd),
-                    new KeyValuePair<string, Func<Task>>("Unlike and remove",  playlistEditMenuActions.UnlikeAndAdd),
+                    new KeyValuePair<string, Func<Task>>("Unlike and remove",  playlistEditMenuActions.UnlikeAndRemove),
                     new KeyValuePair<string, Func<Task>>("Like", playlistEditMenuActions.Like),
                     new KeyValuePair<string, Func<Task>>("Add", playlistEditMenuActions.Add),
                     new KeyValuePair<string, Func<Task>>("Unlike", playlistEditMenuActions.Unlike),

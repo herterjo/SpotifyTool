@@ -153,14 +153,14 @@ namespace SpotifyTool.SpotifyAPI
         public async Task AddToPlaylist(string playlistID, List<string> trackURIs)
         {
             SpotifyClient manager = await this.GetSpotifyClient();
-            await BatchOperate(trackURIs, MaxPlaylistTrackModify, items => manager.Playlists.AddItems(playlistID, new PlaylistAddItemsRequest(items)));
+            await this.BatchOperate(trackURIs, MaxPlaylistTrackModify, items => manager.Playlists.AddItems(playlistID, new PlaylistAddItemsRequest(items)));
         }
 
         public async Task RemoveFromPlaylist(string playlistID, List<string> spotifyUris)
         {
             SpotifyClient manager = await this.GetSpotifyClient();
-            var toRemove = spotifyUris.Select(uri => new PlaylistRemoveItemsRequest.Item() { Uri = uri }).ToList();
-            await BatchOperate(toRemove, MaxPlaylistTrackModify, items => manager.Playlists.RemoveItems(playlistID, new PlaylistRemoveItemsRequest() { Tracks = items }));
+            List<PlaylistRemoveItemsRequest.Item> toRemove = spotifyUris.Select(uri => new PlaylistRemoveItemsRequest.Item() { Uri = uri }).ToList();
+            await this.BatchOperate(toRemove, MaxPlaylistTrackModify, items => manager.Playlists.RemoveItems(playlistID, new PlaylistRemoveItemsRequest() { Tracks = items }));
         }
 
         public async Task<bool> IsCurrentUserOwner(SimplePlaylist playlist)
@@ -189,13 +189,59 @@ namespace SpotifyTool.SpotifyAPI
         public async Task UnlikeTracks(List<string> spotifyIDs)
         {
             SpotifyClient manager = await this.GetSpotifyClient();
-            await BatchOperate(spotifyIDs, MaxLibraryTrackModify, items => manager.Library.RemoveTracks(new LibraryRemoveTracksRequest(items)));
+            await this.BatchOperate(spotifyIDs, MaxLibraryTrackModify, items => manager.Library.RemoveTracks(new LibraryRemoveTracksRequest(items)));
         }
 
         public async Task LikeTracks(List<string> spotifyIDs)
         {
             SpotifyClient manager = await this.GetSpotifyClient();
-            await BatchOperate(spotifyIDs, MaxLibraryTrackModify, items => manager.Library.SaveTracks(new LibrarySaveTracksRequest(items)));
+            await this.BatchOperate(spotifyIDs, MaxLibraryTrackModify, items => manager.Library.SaveTracks(new LibrarySaveTracksRequest(items)));
+        }
+
+        public async Task<List<FullTrack>> GetAllArtistTopTracks(string spotifyId)
+        {
+            Task<SpotifyClient> managerTask = this.GetSpotifyClient();
+            Task<PrivateUser> userTask = this.GetUser();
+            await Task.WhenAll(managerTask, userTask);
+            SpotifyClient manager = managerTask.Result;
+            PrivateUser user = userTask.Result;
+            ArtistsTopTracksResponse response = await manager.Artists.GetTopTracks(spotifyId, new ArtistsTopTracksRequest(user.Country));
+            return response.Tracks;
+        }
+
+        public async Task<Dictionary<FullAlbum, List<SimpleTrack>>> GetAllArtistTracks(string spotifyId, bool userMarket)
+        {
+            Task<SpotifyClient> managerTask = this.GetSpotifyClient();
+            Task<PrivateUser> userTask = this.GetUser();
+            
+            await Task.WhenAll(managerTask, userTask);
+            SpotifyClient manager = managerTask.Result;
+            ArtistsAlbumsRequest.IncludeGroups groups = ArtistsAlbumsRequest.IncludeGroups.Album | ArtistsAlbumsRequest.IncludeGroups.AppearsOn | ArtistsAlbumsRequest.IncludeGroups.Single;
+            ArtistsAlbumsRequest artistsAlbumsRequest;
+            if (userMarket)
+            {
+                //Market here is not for track relinking, but for restricting albums to market
+                artistsAlbumsRequest = new ArtistsAlbumsRequest() { Market = userTask.Result.Country, IncludeGroupsParam = groups };
+            }
+            else
+            {
+                artistsAlbumsRequest = new ArtistsAlbumsRequest() { IncludeGroupsParam = groups };
+            }
+            Paging<SimpleAlbum> simpleAlbums = await manager.Artists.GetAlbums(spotifyId, artistsAlbumsRequest);
+            IList<SimpleAlbum> allSimpleAlbums = await this.PaginateAll(simpleAlbums);
+            List<string> albumIds = allSimpleAlbums.Select(a => a.Id).Distinct().ToList();
+            AlbumsRequest albumsRequest = new AlbumsRequest(albumIds) { Market = userTask.Result.Country };
+            AlbumsResponse fullAlbumsResponse = await manager.Albums.GetSeveral(albumsRequest);
+            IEnumerable<KeyValuePair<FullAlbum, Task<IList<SimpleTrack>>>> allTracksTasks = fullAlbumsResponse.Albums.Select(a => new KeyValuePair<FullAlbum, Task<IList<SimpleTrack>>>(a, this.PaginateAll(a.Tracks)));
+            await Task.WhenAll(allTracksTasks.Select(kv => kv.Value));
+            return allTracksTasks.ToDictionary(kv => kv.Key, kv => kv.Value.Result.Where(t => t.Artists.Any(a => a.Id == spotifyId)).ToList());
+        }
+
+        public async Task<List<FullTrack>> GetMultipleTracks(IEnumerable<string> spotifyIds)
+        {
+            SpotifyClient manager = await this.GetSpotifyClient();
+            TracksResponse response = await manager.Tracks.GetSeveral(new TracksRequest(spotifyIds.ToList()));
+            return response.Tracks;
         }
 
         private async Task BatchOperate<T>(List<T> items, int maxPerRequest, Func<List<T>, Task> executeFunction)

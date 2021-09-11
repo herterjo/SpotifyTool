@@ -41,59 +41,84 @@ namespace SpotifyTool.SpotifyObjects
 
         private static FullTrack[] CheckDouble(List<FullTrack> allPlaylistTracks)
         {
-            //There is probably a more efficient method
-            return allPlaylistTracks
-                .Where(t1 => allPlaylistTracks
-                    .Any(t2 => t2.Id != t1.Id && t1.Uri != t2.Uri && t1.Name.ToLower().StartsWith(t2.Name.ToLower()) && t1.Artists
-                        .Select(a => a.Id).Any(aID => t2.Artists.Select(a => a.Id).Contains(aID))))
-                .Distinct().OrderBy(t => t.Name).ToArray();
+            IEnumerable<FullTrack> doubleTracks = AnalyzeTrackSubsets(allPlaylistTracks, true, ts => ts.Where(t => t.HasSamePropsBinarySearch(ts)));
+            return doubleTracks.OrderBy(t => t.Name).ToArray();
+        }
+
+        private static IEnumerable<FullTrack> AnalyzeTrackSubsets(IEnumerable<FullTrack> fullTracks, bool autoReturnSameId, Func<TrackSubset[], IEnumerable<TrackSubset>> analyzeFunc)
+        {
+            Dictionary<string, FullTrack> trackDictionary = new Dictionary<string, FullTrack>(fullTracks.Count());
+            ICollection<FullTrack> sameIdTracks = new LinkedList<FullTrack>();
+            foreach (FullTrack track in fullTracks)
+            {
+                if (trackDictionary.ContainsKey(track.Id))
+                {
+                    if (autoReturnSameId)
+                    {
+                        sameIdTracks.Add(track);
+                        sameIdTracks.Add(track);
+                    }
+                }
+                else
+                {
+                    trackDictionary.Add(track.Id, track);
+                }
+            }
+            TrackSubset[] trackSubsets = fullTracks.Select(t => new TrackSubset(t)).OrderBy(t => t.LowerName).ToArray();
+            IEnumerable<TrackSubset> doubleTracks = analyzeFunc(trackSubsets);
+            return doubleTracks.Select(dt => trackDictionary[dt.Id]).Concat(sameIdTracks);
         }
 
         public static async Task<FullTrack[]> GetDoubleLibraryTracks()
         {
-            var tracks = await LibraryManager.GetLibraryTracksForCurrentUser();
-            var fullTracks = LibraryManager.GetFullTracks(tracks);
+            List<SavedTrack> tracks = await LibraryManager.GetLibraryTracksForCurrentUser();
+            List<FullTrack> fullTracks = LibraryManager.GetFullTracks(tracks);
             return CheckDouble(fullTracks);
         }
 
-        public static List<FullTrack> GetDoubleArtistsTracks(List<FullTrack> tracksToAnalyze)
+        public static List<FullTrack> GetDoubleArtistsTracks(List<FullTrack> fullTracks)
         {
-            ICollection<FullTrack> doubleArtistTracks = new LinkedList<FullTrack>();
-            for (int i = 0; i < tracksToAnalyze.Count; i++)
+            IEnumerable<FullTrack> doubleTracks = AnalyzeTrackSubsets(fullTracks, true, trackSubsets =>
             {
-                FullTrack trackToCheck = tracksToAnalyze[i];
-                List<string> artistIDsOfTrackToCheck = trackToCheck.Artists.Select(a => a.Id).ToList();
-                for (int j = i + 1; j < tracksToAnalyze.Count; j++)
+                ICollection<TrackSubset> doubleArtistTracks = new LinkedList<TrackSubset>();
+                for (int i = 0; i < trackSubsets.Length; i++)
                 {
-                    FullTrack trackToCompare = tracksToAnalyze[j];
-                    List<string> artistsOfCompareTrack = trackToCompare.Artists.Select(a => a.Id).ToList();
-                    List<string> sameArtists = artistIDsOfTrackToCheck.Where(aid => artistsOfCompareTrack.Contains(aid)).ToList();
-                    if (!sameArtists.Any())
+                    TrackSubset trackToCheck = trackSubsets[i];
+                    HashSet<string> artistIDsOfTrackToCheck = trackToCheck.ArtistIds;
+                    for (int j = i + 1; j < trackSubsets.Length; j++)
                     {
-                        continue;
-                    }
-                    if (sameArtists.Count == artistIDsOfTrackToCheck.Count + artistsOfCompareTrack.Count)
-                    {
-                        doubleArtistTracks.Add(trackToCompare);
-                        doubleArtistTracks.Add(trackToCheck);
-                        continue;
-                    }
-                    //Maybe use recursion to get more depth
-                    IEnumerable<string> differentArtists = artistsOfCompareTrack.Concat(artistIDsOfTrackToCheck).Where(aid => !sameArtists.Contains(aid));
-                    List<FullTrack> differentArtistsTracks = tracksToAnalyze.Where(t => t != trackToCheck && t != trackToCompare && t.Artists.Any(a => differentArtists.Contains(a.Id))).ToList();
-                    if (differentArtistsTracks.Any())
-                    {
-                        doubleArtistTracks.Add(trackToCompare);
-                        doubleArtistTracks.Add(trackToCheck);
-                        foreach (FullTrack doubleTrack in differentArtistsTracks)
+                        TrackSubset trackToCompare = trackSubsets[j];
+                        HashSet<string> artistsOfCompareTrack = trackToCompare.ArtistIds;
+                        List<string> sameArtists = artistIDsOfTrackToCheck.Where(aid => artistsOfCompareTrack.Contains(aid)).ToList();
+                        if (!sameArtists.Any())
                         {
-                            doubleArtistTracks.Add(doubleTrack);
+                            continue;
                         }
-                        continue;
+                        if (sameArtists.Count == artistIDsOfTrackToCheck.Count + artistsOfCompareTrack.Count)
+                        {
+                            doubleArtistTracks.Add(trackToCompare);
+                            doubleArtistTracks.Add(trackToCheck);
+                            continue;
+                        }
+                        //Maybe use recursion to get more depth
+                        IEnumerable<string> differentArtists = artistsOfCompareTrack.Concat(artistIDsOfTrackToCheck).Where(aid => !sameArtists.Contains(aid));
+                        List<TrackSubset> differentArtistsTracks = trackSubsets.Where(t => t != trackToCheck && t != trackToCompare && t.ArtistIds.Any(a => differentArtists.Contains(a))).ToList();
+                        if (differentArtistsTracks.Any())
+                        {
+                            doubleArtistTracks.Add(trackToCompare);
+                            doubleArtistTracks.Add(trackToCheck);
+                            foreach (TrackSubset doubleTrack in differentArtistsTracks)
+                            {
+                                doubleArtistTracks.Add(doubleTrack);
+                            }
+                            continue;
+                        }
                     }
                 }
-            }
-            return doubleArtistTracks.Distinct().ToList();
+                return doubleArtistTracks;
+            });
+
+            return doubleTracks.ToList();
         }
 
         public static ICollection<FullTrack> GetTracksToAddToSecondary(List<FullPlaylistTrack> mainTracks, List<FullTrack> secondaryTracks)

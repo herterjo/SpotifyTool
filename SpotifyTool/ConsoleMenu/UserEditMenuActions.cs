@@ -28,37 +28,37 @@ namespace SpotifyTool.ConsoleMenu
 
         public async Task LikeAndAdd()
         {
-            List<string> uris = await this.GetUris("like and add");
+            List<string> uris = await this.GetTrackUris("like and add");
             await this.PlaylistEditor.AddAndLike(uris);
         }
 
-        public async Task UnlikeAndAdd()
+        public async Task UnlikeAndRemove()
         {
-            List<string> uris = await this.GetUris("unlike and remove");
+            List<string> uris = await this.GetTrackUris("unlike and remove");
             await this.PlaylistEditor.RemoveAndUnlike(uris);
         }
 
         public async Task Like()
         {
-            List<string> uris = await this.GetUris("like");
+            List<string> uris = await this.GetTrackUris("like");
             await LibraryManager.LikeTracks(uris);
         }
 
         public async Task Add()
         {
-            List<string> uris = await this.GetUris("add");
+            List<string> uris = await this.GetTrackUris("add");
             await this.PlaylistEditor.Add(uris);
         }
 
         public async Task Unlike()
         {
-            List<string> uris = await this.GetUris("unlike");
+            List<string> uris = await this.GetTrackUris("unlike");
             await LibraryManager.UnlikeTracks(uris);
         }
 
         public async Task Remove()
         {
-            List<string> uris = await this.GetUris("remove");
+            List<string> uris = await this.GetTrackUris("remove");
             await this.PlaylistEditor.Remove(uris);
         }
 
@@ -99,14 +99,14 @@ namespace SpotifyTool.ConsoleMenu
             Console.WriteLine(StringConverter.AllTracksToString("\n", found));
         }
 
-        private async Task<List<string>> GetUris(string name)
+        private async Task<List<string>> GetTrackUris(string name)
         {
             await this.LogFileManager.WriteToLogAndConsole("\n");
             if (!String.IsNullOrWhiteSpace(name))
             {
                 await this.LogFileManager.WriteToLogAndConsole("Please write the Spotify URIs for command \"" + name + "\":");
             }
-            List<string> uris = Console.ReadLine().Split(" ").Where(s => !String.IsNullOrWhiteSpace(s)).ToList();
+            List<string> uris = Console.ReadLine().Split(" ").Where(s => !String.IsNullOrWhiteSpace(s)).Select(s => StringConverter.GetUri(s, SpotifyObjectTypes.track)).ToList();
             await this.LogFileManager.WriteToLog(String.Join(" ", uris));
             return uris;
         }
