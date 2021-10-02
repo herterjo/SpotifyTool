@@ -20,19 +20,43 @@ namespace SpotifyTool.SpotifyObjects
             this.LowerName = fullTrack.Name.ToLower();
         }
 
+        public TrackSubset(SimpleTrack simpleTrack)
+        {
+            this.Id = simpleTrack.Id;
+            this.Uri = simpleTrack.Uri;
+            this.ArtistIds = new HashSet<string>(simpleTrack.Artists.Select(a => a.Id));
+            this.LowerName = simpleTrack.Name.ToLower();
+        }
+
         public bool CompareForSameTrack(TrackSubset otherTrack)
         {
             return this.LowerName.StartsWith(otherTrack.LowerName) && this.ArtistIds.Any(a => otherTrack.ArtistIds.Contains(a));
         }
 
-        public bool HasSamePropsBinarySearch(TrackSubset[] arr)
+        public int SamePropsBinaryFind(TrackSubset[] arr, int index = 0, int max = -1)
         {
-            return IsInArray(arr, 0, arr.Length - 1);
+            if (max < 0)
+            {
+                max = arr.Length - 1;
+            }
+            if (index < 0 || index > max || index >= arr.Length)
+            {
+                throw new ArgumentException("index " + index + " is invalid fot array with length " + arr.Length + " and max search index " + max);
+            }
+            if(max >= arr.Length)
+            {
+                throw new ArgumentException("max " + max + " is invalid fot array with length " + arr.Length);
+            }
+            return FindInArray(arr, index, max);
         }
 
         //Base binary search copied from https://github.com/Microsoft/referencesource/blob/master/mscorlib/system/array.cs
-        private bool IsInArray(TrackSubset[] arr, int index, int max)
+        public int FindInArray(TrackSubset[] arr, int index, int max)
         {
+            if (arr.Length < 1)
+            {
+                return -1;
+            }
             int lo = index;
             int hi = max;
             while (lo <= hi)
@@ -47,7 +71,7 @@ namespace SpotifyTool.SpotifyObjects
                 }
                 if (this.CompareForSameTrack(arrElem))
                 {
-                    return true;
+                    return i;
                 }
 
                 int c = arrElem.LowerName.CompareTo(this.LowerName);
@@ -64,12 +88,21 @@ namespace SpotifyTool.SpotifyObjects
                     hi = i - 1;
                 }
             }
-            return false;
+            return -1;
         }
 
-        private bool IsInArrayCascading(TrackSubset[] arr, int lo, int hi, int index)
+        private int IsInArrayCascading(TrackSubset[] arr, int lo, int hi, int index)
         {
-            return IsInArray(arr, lo, index - 1) || IsInArray(arr, index + 1, hi);
+            var partialResult = FindInArray(arr, lo, index - 1);
+            if (partialResult >= 0) {
+                return partialResult;
+            }
+            partialResult = FindInArray(arr, index + 1, hi);
+            if (partialResult >= 0)
+            {
+                return partialResult;
+            }
+            return -1;
         }
 
         private static int GetMedian(int low, int hi)

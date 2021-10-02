@@ -41,7 +41,7 @@ namespace SpotifyTool.SpotifyObjects
 
         private static FullTrack[] CheckDouble(List<FullTrack> allPlaylistTracks)
         {
-            IEnumerable<FullTrack> doubleTracks = AnalyzeTrackSubsets(allPlaylistTracks, true, ts => ts.Where(t => t.HasSamePropsBinarySearch(ts)));
+            IEnumerable<FullTrack> doubleTracks = AnalyzeTrackSubsets(allPlaylistTracks, true, ts => ts.Where(t => t.SamePropsBinaryFind(ts) >= 0));
             return doubleTracks.OrderBy(t => t.Name).ToArray();
         }
 

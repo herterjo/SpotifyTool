@@ -244,6 +244,13 @@ namespace SpotifyTool.SpotifyAPI
             return response.Tracks;
         }
 
+        public async Task<bool> QueueTrack(string spotifyUri)
+        {
+            SpotifyClient manager = await this.GetSpotifyClient();
+            var request = new PlayerAddToQueueRequest(spotifyUri);
+            return await manager.Player.AddToQueue(request);
+        }
+
         private async Task BatchOperate<T>(List<T> items, int maxPerRequest, Func<List<T>, Task> executeFunction)
         {
             ICollection<Task> tasks = new LinkedList<Task>();
