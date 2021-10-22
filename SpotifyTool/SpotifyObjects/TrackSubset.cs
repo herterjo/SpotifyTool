@@ -65,6 +65,11 @@ namespace SpotifyTool.SpotifyObjects
                 int i = GetMedian(lo, hi);
 
                 var arrElem = arr[i];
+                if (arrElem == null)
+                {
+                    hi = i - 1; ;
+                    break;
+                }
                 if (this.Id == arrElem.Id || this.Uri == arrElem.Uri)
                 {
                     return IsInArrayCascading(arr, lo, hi, i);

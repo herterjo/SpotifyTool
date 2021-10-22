@@ -12,6 +12,7 @@ namespace SpotifyTool.SpotifyAPI
     {
         public const int MaxPlaylistTrackModify = 100;
         public const int MaxLibraryTrackModify = 50;
+        public const int MaxAlbums = 20;
 
         private static SpotifyAPIManager _Instance = null;
         public static new SpotifyAPIManager Instance
@@ -26,7 +27,8 @@ namespace SpotifyTool.SpotifyAPI
             }
         }
 
-        private EmbedIOAuthServer _server;
+        private EmbedIOAuthServer server;
+        private object serverLock = new object();
         public event Action OnLogin;
 
         protected SpotifyAPIManager() : base()
@@ -35,14 +37,28 @@ namespace SpotifyTool.SpotifyAPI
 
         public async Task LogInRequest()
         {
-            // Make sure "http://localhost:5000/callback" is in your spotify application as redirect uri!
-            this._server = new EmbedIOAuthServer(new Uri("http://localhost:5000/callback"), 5000);
-            Task serverStartTask = this._server.Start();
+            Uri baseUri;
+            Task serverStartTask;
+            lock (this.serverLock)
+            {
+                if (this.server != null)
+                {
+                    serverStartTask = this.StopServerUnsafe();
+                }
+                else
+                {
+                    serverStartTask = Task.CompletedTask;
+                }
+                // Make sure "http://localhost:5000/callback" is in your spotify application as redirect uri!
+                EmbedIOAuthServer serverVariableForAsync = new EmbedIOAuthServer(new Uri("http://localhost:5000/callback"), 5000);
+                serverStartTask = serverStartTask.ContinueWith(t => serverVariableForAsync.Start()).Unwrap();
+                this.server = serverVariableForAsync;
+                this.server.AuthorizationCodeReceived += this.OnAuthorizationCodeReceived;
+                baseUri = this.server.BaseUri;
+            }
             Task<KeyValuePair<string, string>> appIDSecretTask = ConfigManager.GetClientIDAndSecretOrFromConsole();
             await Task.WhenAll(serverStartTask, appIDSecretTask);
-            this._server.AuthorizationCodeReceived += this.OnAuthorizationCodeReceived;
-
-            LoginRequest request = new LoginRequest(this._server.BaseUri, appIDSecretTask.Result.Key, LoginRequest.ResponseType.Code)
+            LoginRequest request = new LoginRequest(baseUri, appIDSecretTask.Result.Key, LoginRequest.ResponseType.Code)
             {
                 Scope = new List<string> {
                     Scopes.AppRemoteControl,
@@ -67,10 +83,13 @@ namespace SpotifyTool.SpotifyAPI
 
         private async Task OnAuthorizationCodeReceived(object sender, AuthorizationCodeResponse response)
         {
-            Task serverStopTask = this._server.Stop();
+            Task serverStopTask;
+            lock (this.serverLock)
+            {
+                serverStopTask = this.StopServerUnsafe();
+            }
             Task<KeyValuePair<string, string>> appIDSecretTask = ConfigManager.GetClientIDAndSecretOrFromConsole();
             await Task.WhenAll(serverStopTask, appIDSecretTask);
-            this._server.Dispose();
             KeyValuePair<string, string> appIDAndSecret = appIDSecretTask.Result;
             AuthorizationCodeTokenResponse tokenResponse = await new OAuthClient().RequestToken(
               new AuthorizationCodeTokenRequest(appIDAndSecret.Key, appIDAndSecret.Value, response.Code, new Uri("http://localhost:5000/callback"))
@@ -81,6 +100,16 @@ namespace SpotifyTool.SpotifyAPI
             SpotifyClient spotifyClient = new SpotifyClient(spotifyConfig);
             this.SetSpotifyClient(spotifyClient);
             OnLogin.Invoke();
+        }
+
+        private async Task StopServerUnsafe()
+        {
+            if (this.server == null)
+            {
+                return;
+            }
+            await this.server.Stop();
+            this.server.Dispose();
         }
 
         public Task<PrivateUser> GetUser()
@@ -211,17 +240,15 @@ namespace SpotifyTool.SpotifyAPI
 
         public async Task<Dictionary<FullAlbum, List<SimpleTrack>>> GetAllArtistTracks(string spotifyId, bool userMarket)
         {
-            Task<SpotifyClient> managerTask = this.GetSpotifyClient();
-            Task<PrivateUser> userTask = this.GetUser();
-            
-            await Task.WhenAll(managerTask, userTask);
-            SpotifyClient manager = managerTask.Result;
+            SpotifyClient manager = await this.GetSpotifyClient();
+            PrivateUser user = await this.GetUser();
+
             ArtistsAlbumsRequest.IncludeGroups groups = ArtistsAlbumsRequest.IncludeGroups.Album | ArtistsAlbumsRequest.IncludeGroups.AppearsOn | ArtistsAlbumsRequest.IncludeGroups.Single;
             ArtistsAlbumsRequest artistsAlbumsRequest;
             if (userMarket)
             {
                 //Market here is not for track relinking, but for restricting albums to market
-                artistsAlbumsRequest = new ArtistsAlbumsRequest() { Market = userTask.Result.Country, IncludeGroupsParam = groups };
+                artistsAlbumsRequest = new ArtistsAlbumsRequest() { Market = user.Country, IncludeGroupsParam = groups };
             }
             else
             {
@@ -230,11 +257,17 @@ namespace SpotifyTool.SpotifyAPI
             Paging<SimpleAlbum> simpleAlbums = await manager.Artists.GetAlbums(spotifyId, artistsAlbumsRequest);
             IList<SimpleAlbum> allSimpleAlbums = await this.PaginateAll(simpleAlbums);
             List<string> albumIds = allSimpleAlbums.Select(a => a.Id).Distinct().ToList();
-            AlbumsRequest albumsRequest = new AlbumsRequest(albumIds) { Market = userTask.Result.Country };
-            AlbumsResponse fullAlbumsResponse = await manager.Albums.GetSeveral(albumsRequest);
-            IEnumerable<KeyValuePair<FullAlbum, Task<IList<SimpleTrack>>>> allTracksTasks = fullAlbumsResponse.Albums.Select(a => new KeyValuePair<FullAlbum, Task<IList<SimpleTrack>>>(a, this.PaginateAll(a.Tracks)));
+            AlbumsResponse[] fullAlbumsResponse = await this.BatchOperateReturns(albumIds, MaxAlbums, items => manager.Albums.GetSeveral(new AlbumsRequest(items) { Market = user.Country }));
+            List<FullAlbum> albums = fullAlbumsResponse.SelectMany(ar => ar.Albums).ToList();
+            IEnumerable<KeyValuePair<FullAlbum, Task<IList<SimpleTrack>>>> allTracksTasks = albums.Select(a => new KeyValuePair<FullAlbum, Task<IList<SimpleTrack>>>(a, this.PaginateAll(a.Tracks)));
             await Task.WhenAll(allTracksTasks.Select(kv => kv.Value));
             return allTracksTasks.ToDictionary(kv => kv.Key, kv => kv.Value.Result.Where(t => t.Artists.Any(a => a.Id == spotifyId)).ToList());
+        }
+
+        public async Task<FullArtist> GetArtist(string artistId)
+        {
+            SpotifyClient manager = await this.GetSpotifyClient();
+            return await manager.Artists.Get(artistId);
         }
 
         public async Task<List<FullTrack>> GetMultipleTracks(IEnumerable<string> spotifyIds)
@@ -247,22 +280,31 @@ namespace SpotifyTool.SpotifyAPI
         public async Task<bool> QueueTrack(string spotifyUri)
         {
             SpotifyClient manager = await this.GetSpotifyClient();
-            var request = new PlayerAddToQueueRequest(spotifyUri);
+            PlayerAddToQueueRequest request = new PlayerAddToQueueRequest(spotifyUri);
             return await manager.Player.AddToQueue(request);
         }
 
-        private async Task BatchOperate<T>(List<T> items, int maxPerRequest, Func<List<T>, Task> executeFunction)
+        private Task BatchOperate<T>(List<T> items, int maxPerRequest, Func<List<T>, Task> executeFunction)
         {
-            ICollection<Task> tasks = new LinkedList<Task>();
-            for (int i = 0; i < items.Count; i += MaxPlaylistTrackModify)
+            return this.BatchOperateReturns(items, maxPerRequest, async batchItems =>
+            {
+                await executeFunction(batchItems);
+                return true;
+            });
+        }
+
+        private async Task<Tout[]> BatchOperateReturns<Tin, Tout>(List<Tin> items, int maxPerRequest, Func<List<Tin>, Task<Tout>> executeFunction)
+        {
+            ICollection<Task<Tout>> tasks = new LinkedList<Task<Tout>>();
+            for (int i = 0; i < items.Count; i += maxPerRequest)
             {
                 //i equals taken elements
                 int toTake = items.Count < (i + maxPerRequest) ? items.Count - i : maxPerRequest;
-                List<T> toUseInRequest = items.GetRange(i, toTake);
-                Task task = executeFunction(items);
+                List<Tin> toUseInRequest = items.GetRange(i, toTake);
+                Task<Tout> task = executeFunction(toUseInRequest);
                 tasks.Add(task);
             }
-            await Task.WhenAll(tasks.ToArray());
+            return await Task.WhenAll(tasks.ToArray());
         }
     }
 }

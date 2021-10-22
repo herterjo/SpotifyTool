@@ -246,5 +246,14 @@ namespace SpotifyTool.ConsoleMenu
             }
             await LogFileManager.WriteToLogAndConsole("\n");
         }
+
+        public async Task EnqueueArtistTracks()
+        {
+            var artistId = await MenuHelper.GetArtistId();
+            Console.WriteLine("Please write 0 for all tracks and 1 for the tracks since the last liked one");
+            var chosenInt = MenuHelper.GetInt(0, 1);
+            var onlyLatest = chosenInt == 0 ? false : true;
+            await DiscoveryManager.EnqueueFromArtistAlbums(artistId, onlyLatest);
+        }
     }
 }

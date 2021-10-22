@@ -25,7 +25,8 @@ namespace SpotifyTool.ConsoleMenu
                     new KeyValuePair<string, Func<Task>>("Edit Playlist", async() => {
                         UserEditMenu menu = await UserEditMenu.GetUserEditMenuActions(logFileManager);
                         await menu.UseMenu();
-                    })
+                    }),
+                    new KeyValuePair<string, Func<Task>>("Enqueue more tracks from artist", mainMenuActions.EnqueueArtistTracks)
                 }, 0)
         {
         }

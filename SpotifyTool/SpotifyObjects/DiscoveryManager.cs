@@ -10,6 +10,8 @@ namespace SpotifyTool.SpotifyObjects
     {
         public static async Task EnqueueFromArtistAlbums(string artistId, bool onlyLatest)
         {
+            //Execute login request first so that other tasks can be executed async which may spawn multiple login requests
+            await SpotifyAPIManager.Instance.GetUser();
             //Maybe split libraryTask and artistTracksTask and following functions before foreach loop to await them each for maximum performance
             //Maybe load artist albums page by page while checking the already loaded pages, but this method is questionable because of album order and batch song loading
             Task<List<SavedTrack>> libraryTask = LibraryManager.GetLibraryTracksForCurrentUser();
@@ -48,7 +50,7 @@ namespace SpotifyTool.SpotifyObjects
                         }
                     }
                     seenTracksList.Add(trackSubset);
-                    seenTracks = seenTracksList.OrderBy(t => t.LowerName).ToArray();
+                    seenTracks = seenTracksList.OrderBy(t => t == null ? 1 : 0).ThenBy(t => t == null ? "" : t.LowerName).ToArray();
 
                     //check if in library for onlyLatest early return
                     if ((!alreadySeen || onlyLatest) && libraryDictionary.ContainsKey(trackSubset.Id))
