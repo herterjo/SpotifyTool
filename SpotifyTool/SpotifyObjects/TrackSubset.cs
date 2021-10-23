@@ -43,11 +43,11 @@ namespace SpotifyTool.SpotifyObjects
             {
                 throw new ArgumentException("index " + index + " is invalid fot array with length " + arr.Length + " and max search index " + max);
             }
-            if(max >= arr.Length)
+            if (max >= arr.Length)
             {
                 throw new ArgumentException("max " + max + " is invalid fot array with length " + arr.Length);
             }
-            return FindInArray(arr, index, max);
+            return this.FindInArray(arr, index, max);
         }
 
         //Base binary search copied from https://github.com/Microsoft/referencesource/blob/master/mscorlib/system/array.cs
@@ -64,7 +64,7 @@ namespace SpotifyTool.SpotifyObjects
                 // i might overflow if lo and hi are both large positive numbers. 
                 int i = GetMedian(lo, hi);
 
-                var arrElem = arr[i];
+                TrackSubset arrElem = arr[i];
                 if (arrElem == null)
                 {
                     hi = i - 1; ;
@@ -72,7 +72,7 @@ namespace SpotifyTool.SpotifyObjects
                 }
                 if (this.Id == arrElem.Id || this.Uri == arrElem.Uri)
                 {
-                    return IsInArrayCascading(arr, lo, hi, i);
+                    return this.IsInArrayCascading(arr, lo, hi, i);
                 }
                 if (this.CompareForSameTrack(arrElem))
                 {
@@ -82,7 +82,7 @@ namespace SpotifyTool.SpotifyObjects
                 int c = arrElem.LowerName.CompareTo(this.LowerName);
                 if (c == 0)
                 {
-                    return IsInArrayCascading(arr, lo, hi, i);
+                    return this.IsInArrayCascading(arr, lo, hi, i);
                 }
                 if (c < 0)
                 {
@@ -98,11 +98,12 @@ namespace SpotifyTool.SpotifyObjects
 
         private int IsInArrayCascading(TrackSubset[] arr, int lo, int hi, int index)
         {
-            var partialResult = FindInArray(arr, lo, index - 1);
-            if (partialResult >= 0) {
+            int partialResult = this.FindInArray(arr, lo, index - 1);
+            if (partialResult >= 0)
+            {
                 return partialResult;
             }
-            partialResult = FindInArray(arr, index + 1, hi);
+            partialResult = this.FindInArray(arr, index + 1, hi);
             if (partialResult >= 0)
             {
                 return partialResult;

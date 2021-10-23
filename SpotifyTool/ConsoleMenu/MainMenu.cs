@@ -21,7 +21,7 @@ namespace SpotifyTool.ConsoleMenu
                     new KeyValuePair<string, Func<Task>>("Get double tracks in library", mainMenuActions.CheckDoubleLibraryTracks),
                     new KeyValuePair<string, Func<Task>>("Cross check users library with playlist", mainMenuActions.CrossCheckLikedAndPlaylist),
                     new KeyValuePair<string, Func<Task>>("Refresh all cached playlists and current library", mainMenuActions.RefreshAllUserPlaylistsAndLibraryTracks),
-                    new KeyValuePair<string, Func<Task>>("Log in", SpotifyAPIManager.Instance.LogInRequest),
+                    new KeyValuePair<string, Func<Task>>("Log in", SpotifyAPIManager.Instance.GetUser),
                     new KeyValuePair<string, Func<Task>>("Edit Playlist", async() => {
                         UserEditMenu menu = await UserEditMenu.GetUserEditMenuActions(logFileManager);
                         await menu.UseMenu();

@@ -1,6 +1,4 @@
 ﻿using SpotifyAPI.Web;
-using SpotifyAPI.Web.Auth;
-using SpotifyTool.Config;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace SpotifyTool.SpotifyAPI
 {
-    public class SpotifyAPIManager : ClientManager
+    public class SpotifyAPIManager : UserManager
     {
         public const int MaxPlaylistTrackModify = 100;
         public const int MaxLibraryTrackModify = 50;
@@ -27,129 +25,8 @@ namespace SpotifyTool.SpotifyAPI
             }
         }
 
-        private EmbedIOAuthServer server;
-        private object serverLock = new object();
-        public event Action OnLogin;
-
         protected SpotifyAPIManager() : base()
         {
-        }
-
-        public async Task LogInRequest()
-        {
-            Uri baseUri;
-            Task serverStartTask;
-            lock (this.serverLock)
-            {
-                if (this.server != null)
-                {
-                    serverStartTask = this.StopServerUnsafe();
-                }
-                else
-                {
-                    serverStartTask = Task.CompletedTask;
-                }
-                // Make sure "http://localhost:5000/callback" is in your spotify application as redirect uri!
-                EmbedIOAuthServer serverVariableForAsync = new EmbedIOAuthServer(new Uri("http://localhost:5000/callback"), 5000);
-                serverStartTask = serverStartTask.ContinueWith(t => serverVariableForAsync.Start()).Unwrap();
-                this.server = serverVariableForAsync;
-                this.server.AuthorizationCodeReceived += this.OnAuthorizationCodeReceived;
-                baseUri = this.server.BaseUri;
-            }
-            Task<KeyValuePair<string, string>> appIDSecretTask = ConfigManager.GetClientIDAndSecretOrFromConsole();
-            await Task.WhenAll(serverStartTask, appIDSecretTask);
-            LoginRequest request = new LoginRequest(baseUri, appIDSecretTask.Result.Key, LoginRequest.ResponseType.Code)
-            {
-                Scope = new List<string> {
-                    Scopes.AppRemoteControl,
-                    Scopes.PlaylistModifyPrivate,
-                    Scopes.PlaylistModifyPublic,
-                    Scopes.PlaylistReadCollaborative,
-                    Scopes.PlaylistReadPrivate,
-                    Scopes.Streaming,
-                    Scopes.UserFollowRead,
-                    Scopes.UserLibraryRead,
-                    Scopes.UserModifyPlaybackState,
-                    Scopes.UserReadCurrentlyPlaying,
-                    Scopes.UserReadPlaybackPosition,
-                    Scopes.UserReadPlaybackState,
-                    Scopes.UserReadPrivate,
-                    Scopes.UserReadRecentlyPlayed,
-                    Scopes.UserTopRead }
-            };
-            Uri uri = request.ToUri();
-            BrowserUtil.Open(uri);
-        }
-
-        private async Task OnAuthorizationCodeReceived(object sender, AuthorizationCodeResponse response)
-        {
-            Task serverStopTask;
-            lock (this.serverLock)
-            {
-                serverStopTask = this.StopServerUnsafe();
-            }
-            Task<KeyValuePair<string, string>> appIDSecretTask = ConfigManager.GetClientIDAndSecretOrFromConsole();
-            await Task.WhenAll(serverStopTask, appIDSecretTask);
-            KeyValuePair<string, string> appIDAndSecret = appIDSecretTask.Result;
-            AuthorizationCodeTokenResponse tokenResponse = await new OAuthClient().RequestToken(
-              new AuthorizationCodeTokenRequest(appIDAndSecret.Key, appIDAndSecret.Value, response.Code, new Uri("http://localhost:5000/callback"))
-            );
-            SpotifyClientConfig spotifyConfig = SpotifyClientConfig
-              .CreateDefault()
-              .WithAuthenticator(new AuthorizationCodeAuthenticator(appIDAndSecret.Key, appIDAndSecret.Value, tokenResponse));
-            SpotifyClient spotifyClient = new SpotifyClient(spotifyConfig);
-            this.SetSpotifyClient(spotifyClient);
-            OnLogin.Invoke();
-        }
-
-        private async Task StopServerUnsafe()
-        {
-            if (this.server == null)
-            {
-                return;
-            }
-            await this.server.Stop();
-            this.server.Dispose();
-        }
-
-        public Task<PrivateUser> GetUser()
-        {
-            return this.GetUser(0);
-        }
-
-        private async Task<PrivateUser> GetUser(int retries)
-        {
-            try
-            {
-                SpotifyClient client = await this.GetSpotifyClient();
-                return await client.UserProfile.Current();
-            }
-            catch (Exception ex)
-            {
-                APIException apiEx = null;
-                if (ex is AggregateException aex && aex.InnerExceptions.Count == 1 && aex.InnerExceptions[0] is APIException apiEx2)
-                {
-                    apiEx = apiEx2;
-                }
-                else if (ex is APIException apiEx3)
-                {
-                    apiEx = apiEx3;
-                }
-                if (apiEx == null || retries > 1)
-                {
-                    throw ex;
-                }
-            }
-            TaskCompletionSource<PrivateUser> loginTaskCompletionSource = new TaskCompletionSource<PrivateUser>();
-            async void onLoginCompetion()
-            {
-                loginTaskCompletionSource.SetResult(await this.GetUser(retries + 1));
-                OnLogin -= onLoginCompetion;
-            }
-
-            OnLogin += onLoginCompetion;
-            await this.LogInRequest();
-            return await loginTaskCompletionSource.Task;
         }
 
         public async Task<List<SimplePlaylist>> GetPlaylistsFromCurrentUser()

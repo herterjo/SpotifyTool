@@ -253,7 +253,10 @@ namespace SpotifyTool.ConsoleMenu
             Console.WriteLine("Please write 0 for all tracks and 1 for the tracks since the last liked one");
             var chosenInt = MenuHelper.GetInt(0, 1);
             var onlyLatest = chosenInt == 0 ? false : true;
-            await DiscoveryManager.EnqueueFromArtistAlbums(artistId, onlyLatest);
+            Console.WriteLine("Please write 0 to exclude variants (remixes etc) for new found tracks and 1 to include all variants");
+            chosenInt = MenuHelper.GetInt(0, 1);
+            var includeAllVariants = chosenInt == 0 ? false : true;
+            await DiscoveryManager.EnqueueFromArtistAlbums(artistId, onlyLatest, includeAllVariants);
         }
     }
 }

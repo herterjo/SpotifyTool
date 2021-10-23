@@ -1,4 +1,5 @@
-﻿using SpotifyAPI.Web;
+﻿using Nito.AsyncEx;
+using SpotifyAPI.Web;
 using SpotifyTool.Config;
 using System;
 using System.Collections.Generic;
@@ -11,6 +12,8 @@ namespace SpotifyTool.SpotifyAPI
         public static event Action AfterClientChange;
 
         private static ClientManager _Instance = null;
+        private readonly AsyncReaderWriterLock clientLock = new AsyncReaderWriterLock();
+
         public static ClientManager Instance
         {
             get
@@ -31,22 +34,41 @@ namespace SpotifyTool.SpotifyAPI
 
         public async Task<SpotifyClient> GetSpotifyClient()
         {
-            if (this.SpotifyClient == null)
+            using (await this.clientLock.ReaderLockAsync())
             {
+                if (this.SpotifyClient != null)
+                {
+                    return this.SpotifyClient;
+                }
+            }
+            using (await this.clientLock.WriterLockAsync())
+            {
+                if (this.SpotifyClient != null)
+                {
+                    return this.SpotifyClient;
+                }
                 KeyValuePair<string, string> clientIDAndSecret = await ConfigManager.GetClientIDAndSecretOrFromConsole();
                 SpotifyClientConfig clientConfig = SpotifyClientConfig
                     .CreateDefault()
                     .WithAuthenticator(new ClientCredentialsAuthenticator(clientIDAndSecret.Key, clientIDAndSecret.Value));
                 SpotifyClient client = new SpotifyClient(clientConfig);
-                this.SetSpotifyClient(client);
+                this.SetSpotifyClientUnsafe(client);
+                return this.SpotifyClient;
             }
-            return this.SpotifyClient;
         }
 
-        protected void SetSpotifyClient(SpotifyClient client)
+        private void SetSpotifyClientUnsafe(SpotifyClient client)
         {
             this.SpotifyClient = client ?? throw new ArgumentNullException(nameof(client));
             AfterClientChange?.Invoke();
+        }
+
+        protected async void SetSpotifyClient(SpotifyClient client)
+        {
+            using (await this.clientLock.WriterLockAsync())
+            {
+                this.SetSpotifyClientUnsafe(client);
+            }
         }
     }
 }

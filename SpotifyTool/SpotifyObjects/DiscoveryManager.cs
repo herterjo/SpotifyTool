@@ -8,7 +8,7 @@ namespace SpotifyTool.SpotifyObjects
 {
     public static class DiscoveryManager
     {
-        public static async Task EnqueueFromArtistAlbums(string artistId, bool onlyLatest)
+        public static async Task EnqueueFromArtistAlbums(string artistId, bool onlyLatest, bool includeAllVariations)
         {
             //Execute login request first so that other tasks can be executed async which may spawn multiple login requests
             await SpotifyAPIManager.Instance.GetUser();
@@ -21,10 +21,10 @@ namespace SpotifyTool.SpotifyObjects
             TrackSubset[] seenTracks = new TrackSubset[artistTracksCount];
             List<TrackSubset> seenTracksList = new List<TrackSubset>(artistTracksCount);
             Dictionary<string, TrackSubset> seenTracksDictionary = new Dictionary<string, TrackSubset>(artistTracksCount);
-            ICollection<Task> enqueueTasks = new LinkedList<Task>();
             List<SavedTrack> libraryResult = await libraryTask;
             TrackSubset[] libraryTracks = libraryResult.Select(pt => new TrackSubset(pt.Track)).OrderBy(t => t.LowerName).ToArray();
             Dictionary<string, TrackSubset> libraryDictionary = libraryTracks.Distinct(TrackSubsetEqualityComparer.Instance).ToDictionary(t => t.Id, t => t);
+            ICollection<TrackSubset> toEnqueue = new LinkedList<TrackSubset>();
             foreach (KeyValuePair<FullAlbum, List<SimpleTrack>> album in orderedArtistTracks)
             {
                 foreach (SimpleTrack track in album.Value)
@@ -70,10 +70,17 @@ namespace SpotifyTool.SpotifyObjects
                     {
                         continue;
                     }
-                    enqueueTasks.Add(SpotifyAPIManager.Instance.QueueTrack(trackSubset.Uri));
+                    toEnqueue.Add(trackSubset);
                 }
             }
-            await Task.WhenAll(enqueueTasks.ToArray());
+            var toEnqueueArray = toEnqueue.ToArray();
+            if (!includeAllVariations)
+            {
+                toEnqueueArray = toEnqueueArray.Where(ts => !toEnqueueArray.Any(tso => ts.Id != tso.Id && ts.LowerName.StartsWith(tso.LowerName))).ToArray();
+            }
+            
+            var enqueueTasks = toEnqueueArray.Select(ts => SpotifyAPIManager.Instance.QueueTrack(ts.Uri)).ToArray();
+            await Task.WhenAll(enqueueTasks);
         }
     }
 }
