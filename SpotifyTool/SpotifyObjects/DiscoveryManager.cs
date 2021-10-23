@@ -1,5 +1,6 @@
 ﻿using SpotifyAPI.Web;
 using SpotifyTool.SpotifyAPI;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -79,7 +80,17 @@ namespace SpotifyTool.SpotifyObjects
                 toEnqueueArray = toEnqueueArray.Where(ts => !toEnqueueArray.Any(tso => ts.Id != tso.Id && ts.LowerName.StartsWith(tso.LowerName))).ToArray();
             }
             
-            var enqueueTasks = toEnqueueArray.Select(ts => SpotifyAPIManager.Instance.QueueTrack(ts.Uri)).ToArray();
+            var enqueueTasks = toEnqueueArray.Select(ts => {
+                    try
+                    {
+                        return SpotifyAPIManager.Instance.QueueTrack(ts.Uri);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ts.LowerName + ":\n" + ex.ToString());
+                    }
+                    return Task.CompletedTask;
+                }).ToArray();
             await Task.WhenAll(enqueueTasks);
         }
     }
