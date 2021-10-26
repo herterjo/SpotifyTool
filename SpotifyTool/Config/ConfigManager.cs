@@ -24,6 +24,16 @@ namespace SpotifyTool.Config
             return Serialization.SerializeJson(config, ConfigFileName);
         }
 
+        public static async Task<int> GetCallbackPort()
+        {
+            if (!File.Exists(ConfigFileName))
+            {
+                return ConfigContent.DefaultCallbackPort;
+            }
+            var config = await Read();
+            return config.CallbackPort;
+        }
+
         private static async Task<string> GetFromConfigOrConsole(Func<ConfigContent, string> configGetter, string printLn, ConfigContent appConfig = null)
         {
             if (appConfig == null)

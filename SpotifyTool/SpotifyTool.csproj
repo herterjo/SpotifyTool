@@ -6,16 +6,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="config.json" />
+    <None Remove="config.json.empty" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="Nito.AsyncEx" Version="5.1.2" />
     <PackageReference Include="SpotifyAPI.Web" Version="6.2.2" />
     <PackageReference Include="SpotifyAPI.Web.Auth" Version="6.2.2" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="config.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="IF $(ConfigurationName) == Debug (&#xD;&#xA; IF EXIST &quot;$(ProjectDir)config.json&quot; (&#xD;&#xA;  COPY &quot;$(ProjectDir)config.json&quot; &quot;$(ProjectDir)$(OutDir)config.json&quot; &amp;&amp; ECHO copied config.json&#xD;&#xA; )&#xD;&#xA;)&#xD;&#xA;&#xD;&#xA;IF $(ConfigurationName) == Release (&#xD;&#xA; IF EXIST  &quot;$(ProjectDir)config.json.empty&quot; (&#xD;&#xA;  COPY &quot;$(ProjectDir)config.json.empty&quot; &quot;$(ProjectDir)$(OutDir)config.json&quot; &amp;&amp; ECHO copied config.json.empty&#xD;&#xA; )&#xD;&#xA;)&#xD;&#xA;&#xD;&#xA;IF EXIST  &quot;$(SolutionDir)README.md&quot; (&#xD;&#xA; COPY &quot;$(SolutionDir)README.md&quot; &quot;$(ProjectDir)$(OutDir)README.md&quot; &amp;&amp; ECHO copied README.md&#xD;&#xA;)&#xD;&#xA;&#xD;&#xA;IF EXIST  &quot;$(SolutionDir)LICENSE&quot; (&#xD;&#xA; COPY &quot;$(SolutionDir)LICENSE&quot; &quot;$(ProjectDir)$(OutDir)LICENSE&quot; &amp;&amp; ECHO copied LICENSE&#xD;&#xA;)" />
+  </Target>
 </Project>

@@ -6,29 +6,26 @@ using System.Threading.Tasks;
 
 namespace SpotifyTool.ConsoleMenu
 {
-    public class UserEditMenu : LoopMenu, IDisposable
+    public class PlaylistEditMenu : LoopMenu, IDisposable
     {
-        private readonly UserEditMenuActions Actions;
+        private readonly PlaylistEditMenuActions Actions;
 
-        private UserEditMenu(UserEditMenuActions playlistEditMenuActions) : base(new List<KeyValuePair<string, Func<Task>>>() {
+        private PlaylistEditMenu(PlaylistEditMenuActions playlistEditMenuActions) : base(new List<KeyValuePair<string, Func<Task>>>() {
                     new KeyValuePair<string, Func<Task>>("Like and add", playlistEditMenuActions.LikeAndAdd),
                     new KeyValuePair<string, Func<Task>>("Unlike and remove",  playlistEditMenuActions.UnlikeAndRemove),
-                    new KeyValuePair<string, Func<Task>>("Like", playlistEditMenuActions.Like),
                     new KeyValuePair<string, Func<Task>>("Add", playlistEditMenuActions.Add),
-                    new KeyValuePair<string, Func<Task>>("Unlike", playlistEditMenuActions.Unlike),
                     new KeyValuePair<string, Func<Task>>("Remove", playlistEditMenuActions.Remove),
                     new KeyValuePair<string, Func<Task>>("Search in playlist", playlistEditMenuActions.SearchPlaylist),
-                    new KeyValuePair<string, Func<Task>>("Search in library", playlistEditMenuActions.SearchLibrary)
                 }, 0)
         {
             OnExit += Dispose;
             Actions = playlistEditMenuActions;
         }
 
-        public static async Task<UserEditMenu> GetUserEditMenuActions(LogFileManager logFileManager)
+        public static async Task<PlaylistEditMenu> GetPlaylistEditMenuActions(LogFileManager logFileManager)
         {
-            var actions = await UserEditMenuActions.GetUserEditMenuActions(logFileManager);
-            return new UserEditMenu(actions);
+            var actions = await PlaylistEditMenuActions.GetUserEditMenuActions(logFileManager);
+            return new PlaylistEditMenu(actions);
         }
 
         #region IDisposable Support

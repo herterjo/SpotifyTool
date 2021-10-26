@@ -258,5 +258,14 @@ namespace SpotifyTool.ConsoleMenu
             var includeAllVariants = chosenInt == 0 ? false : true;
             await DiscoveryManager.EnqueueFromArtistAlbums(artistId, onlyLatest, includeAllVariants);
         }
+
+        public async Task EnqueueArtistTopTracks()
+        {
+            var artistId = await MenuHelper.GetArtistId();
+            Console.WriteLine("Please write 0 to exclude variants (remixes etc) for new found tracks and 1 to include all variants");
+            var chosenInt = MenuHelper.GetInt(0, 1);
+            var includeAllVariants = chosenInt == 0 ? false : true;
+            await DiscoveryManager.EnqueueArtistTopTracks(artistId, includeAllVariants);
+        }
     }
 }

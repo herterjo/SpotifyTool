@@ -1,4 +1,5 @@
 ﻿using SpotifyAPI.Web;
+using SpotifyTool.Logger;
 using SpotifyTool.SpotifyAPI;
 using SpotifyTool.SpotifyObjects;
 using System;
@@ -74,6 +75,37 @@ namespace SpotifyTool.ConsoleMenu
                 Console.WriteLine("Please write a valid number from " + min + " to " + max + ":");
             } while (true);
             return chosenInt;
+        }
+
+        public static async Task Search(Func<string, Task<List<FullTrack>>> getFullTracks)
+        {
+            Console.WriteLine("Write the information to search for:");
+            string searchString = Console.ReadLine();
+            if (String.IsNullOrWhiteSpace(searchString))
+            {
+                Console.WriteLine("Nothing entered");
+                return;
+            }
+            searchString = searchString.ToLowerInvariant();
+            List<FullTrack> allTracks = await getFullTracks(searchString);
+            FullTrack[] found = allTracks.Where(t => t.Uri.ToLowerInvariant().Contains(searchString)
+                    || t.Name.ToLowerInvariant().Contains(searchString)
+                    || t.Artists.Any(a => a.Name.ToLowerInvariant().Contains(searchString))
+                    || t.Album.Name.ToLowerInvariant().Contains(searchString))
+                .ToArray();
+            Console.WriteLine(StringConverter.AllTracksToString("\n", found));
+        }
+
+        public static async Task<List<string>> GetTrackUris(string name, LogFileManager logFileManager)
+        {
+            await logFileManager.WriteToLogAndConsole("\n");
+            if (!String.IsNullOrWhiteSpace(name))
+            {
+                await logFileManager.WriteToLogAndConsole("Please write the Spotify URIs for command \"" + name + "\" (seperated by spaces):");
+            }
+            List<string> uris = Console.ReadLine().Split(" ").Where(s => !String.IsNullOrWhiteSpace(s)).Select(s => StringConverter.GetUri(s, SpotifyObjectTypes.track)).ToList();
+            await logFileManager.WriteToLog(String.Join(" ", uris));
+            return uris;
         }
     }
 }

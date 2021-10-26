@@ -23,8 +23,9 @@ namespace SpotifyTool.SpotifyAPI
             {
                 await this.StopServerUnsafe();
             }
-            // Make sure "http://localhost:5000/callback" is in your spotify application as redirect uri!
-            this.server = new EmbedIOAuthServer(new Uri("http://localhost:5000/callback"), 5000);
+            var callbackPort = await ConfigManager.GetCallbackPort();
+            // Make sure "http://localhost:*callbackPort*/callback" is in your spotify application as redirect uri!
+            this.server = new EmbedIOAuthServer(new Uri("http://localhost:" + callbackPort + "/callback"), callbackPort);
             await this.server.Start();
             this.server.AuthorizationCodeReceived += this.OnAuthorizationCodeReceived;
             baseUri = this.server.BaseUri;
