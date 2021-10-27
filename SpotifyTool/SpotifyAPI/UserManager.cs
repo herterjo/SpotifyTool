@@ -56,10 +56,12 @@ namespace SpotifyTool.SpotifyAPI
         private async Task OnAuthorizationCodeReceived(object sender, AuthorizationCodeResponse response)
         {
             Task<KeyValuePair<string, string>> appIDSecretTask = ConfigManager.GetClientIDAndSecretOrFromConsole();
+            var callbackPortTask = ConfigManager.GetCallbackPort();
             await this.StopServerUnsafe();
-            KeyValuePair<string, string> appIDAndSecret = await appIDSecretTask;
+            await Task.WhenAll(appIDSecretTask, callbackPortTask);
+            KeyValuePair<string, string> appIDAndSecret = appIDSecretTask.Result;
             AuthorizationCodeTokenResponse tokenResponse = await new OAuthClient().RequestToken(
-              new AuthorizationCodeTokenRequest(appIDAndSecret.Key, appIDAndSecret.Value, response.Code, new Uri("http://localhost:5000/callback"))
+              new AuthorizationCodeTokenRequest(appIDAndSecret.Key, appIDAndSecret.Value, response.Code, new Uri("http://localhost:"+ callbackPortTask.Result + "/callback"))
             );
             SpotifyClientConfig spotifyConfig = SpotifyClientConfig
               .CreateDefault()
