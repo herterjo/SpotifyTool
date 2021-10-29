@@ -97,26 +97,38 @@ namespace SpotifyTool.SpotifyObjects
                 }
                 toEnqueue.AddRange(toAdd);
             }
-            TrackSubset[] toEnqueueArray = toEnqueue.ToArray();
             if (!includeAllVariations)
             {
-                toEnqueueArray = toEnqueueArray.Where(ts => !toEnqueueArray.Any(tso => ts.Id != tso.Id && ts.LowerName.StartsWith(tso.LowerName))).ToArray();
+                toEnqueue = toEnqueue.Where(ts => !toEnqueue.Any(tso => ts.Id != tso.Id && ts.LowerName.StartsWith(tso.LowerName))).ToList();
             }
 
-            Task[] enqueueTasks = toEnqueueArray.Select(ts => TryQueue(ts)).ToArray();
-            await Task.WhenAll(enqueueTasks);
+            var enqueueResults = new Dictionary<TrackSubset, bool>();
+            //Failure to enque ("not found"-Exception) probaly results from enqueuing too much at once, so wait until enqueue finished before enqueuing the next track
+            foreach (var toEnqueSingle in toEnqueue)
+            {
+                var success = await TryQueue(toEnqueSingle);
+                enqueueResults.Add(toEnqueSingle, success);
+            }
+            Console.WriteLine();
+            //Print results after possible exception stacktrace from enqueue attempt
+            foreach (var enqueueTask in enqueueResults)
+            {
+                Console.WriteLine(enqueueTask.Key.ToString() + ": " + enqueueTask.Value);
+            }
         }
 
-        private static async Task TryQueue(TrackSubset ts)
+        private static async Task<bool> TryQueue(TrackSubset ts)
         {
             //Enqueueing sometimes throws an exception because "not found", so just catch and print here for now
+            //This catching is why this method is async and does not simply return the task
             try
             {
-                await SpotifyAPIManager.Instance.QueueTrack(ts.Uri);
+                return await SpotifyAPIManager.Instance.QueueTrack(ts.Uri);
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ts.LowerName + ":\n" + ex.ToString());
+                Console.WriteLine("\n" + ts.LowerName + ":\n" + ex.ToString());
+                return false;
             }
         }
     }

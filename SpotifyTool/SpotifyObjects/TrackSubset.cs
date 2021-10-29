@@ -28,6 +28,11 @@ namespace SpotifyTool.SpotifyObjects
             this.LowerName = simpleTrack.Name.ToLower();
         }
 
+        public override string ToString()
+        {
+            return LowerName + " <" + Id + ">";
+        }
+
         public bool CompareForSameTrack(TrackSubset otherTrack)
         {
             return this.LowerName.StartsWith(otherTrack.LowerName) && this.ArtistIds.Any(a => otherTrack.ArtistIds.Contains(a));
