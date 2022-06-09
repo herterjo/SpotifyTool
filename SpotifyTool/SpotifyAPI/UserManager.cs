@@ -2,6 +2,7 @@
 using SpotifyAPI.Web;
 using SpotifyAPI.Web.Auth;
 using SpotifyTool.Config;
+using SpotifyTool.Logger;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -60,7 +61,8 @@ namespace SpotifyTool.SpotifyAPI
             await this.StopServerUnsafe();
             await Task.WhenAll(appIDSecretTask, callbackPortTask);
             KeyValuePair<string, string> appIDAndSecret = appIDSecretTask.Result;
-            AuthorizationCodeTokenResponse tokenResponse = await new OAuthClient().RequestToken(
+            var oAuthClient = new OAuthClient();
+            AuthorizationCodeTokenResponse tokenResponse = await oAuthClient.RequestToken(
               new AuthorizationCodeTokenRequest(appIDAndSecret.Key, appIDAndSecret.Value, response.Code, new Uri("http://localhost:"+ callbackPortTask.Result + "/callback"))
             );
             SpotifyClientConfig spotifyConfig = SpotifyClientConfig

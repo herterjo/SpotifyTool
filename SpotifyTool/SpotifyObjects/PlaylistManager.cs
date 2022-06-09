@@ -27,8 +27,11 @@ namespace SpotifyTool.SpotifyObjects
             SpotifyAPIManager spotifyAPIManager = SpotifyAPIManager.Instance;
             List<SimplePlaylist> playlists = await spotifyAPIManager.GetPlaylistsFromCurrentUser();
             List<SimplePlaylist> toRefresh = playlists.Where(pl => File.Exists(GetPlaylistFileName(pl))).ToList();
-            Task[] allRefreshTasks = toRefresh.Select(RefreshSinglePlaylist).ToArray();
-            await Task.WhenAll(allRefreshTasks);
+            //Do this one after another to not generate too many requests
+            foreach (var pl in toRefresh)
+            {
+                await RefreshSinglePlaylist(pl);
+            }
         }
 
         public static Task<List<FullPlaylistTrack>> RefreshSinglePlaylist(string playlistID)

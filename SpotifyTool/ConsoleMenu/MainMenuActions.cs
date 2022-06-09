@@ -193,9 +193,13 @@ namespace SpotifyTool.ConsoleMenu
             }
         }
 
-        public Task RefreshAllUserPlaylistsAndLibraryTracks()
+        public async Task RefreshAllUserPlaylistsAndLibraryTracks()
         {
-            return Task.WhenAll(PlaylistManager.RefreshAllUserPlaylists(), LibraryManager.RefreshLibraryTracksIfCached());
+            //Do this one after another to not generate too many requests
+            await PlaylistManager.RefreshAllUserPlaylists();
+            Console.WriteLine("Done with refreshing all cached playlists");
+            await LibraryManager.RefreshLibraryTracksIfCached();
+            Console.WriteLine("Done with refreshing cached library");
         }
 
         public async Task CrossCheckLikedAndPlaylist(SimplePlaylist playlist, string playlistID)
