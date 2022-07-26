@@ -134,11 +134,11 @@ namespace SpotifyTool.SpotifyAPI
             Paging<SimpleAlbum> simpleAlbums = await manager.Artists.GetAlbums(spotifyId, artistsAlbumsRequest);
             IList<SimpleAlbum> allSimpleAlbums = await this.PaginateAll(simpleAlbums);
             List<string> albumIds = allSimpleAlbums.Select(a => a.Id).Distinct().ToList();
-            AlbumsResponse[] fullAlbumsResponse = await this.BatchOperateReturns(albumIds, MaxAlbums, items => manager.Albums.GetSeveral(new AlbumsRequest(items) { Market = user.Country }));
+            AlbumsResponse[] fullAlbumsResponse = await BatchOperateReturns(albumIds, MaxAlbums, items => manager.Albums.GetSeveral(new AlbumsRequest(items) { Market = user.Country }));
             List<FullAlbum> albums = fullAlbumsResponse.SelectMany(ar => ar.Albums).ToList();
-            IEnumerable<KeyValuePair<FullAlbum, Task<IList<SimpleTrack>>>> allTracksTasks = albums.Select(a => new KeyValuePair<FullAlbum, Task<IList<SimpleTrack>>>(a, this.PaginateAll(a.Tracks)));
-            await Task.WhenAll(allTracksTasks.Select(kv => kv.Value));
-            return allTracksTasks.ToDictionary(kv => kv.Key, kv => kv.Value.Result.Where(t => t.Artists.Any(a => a.Id == spotifyId)).ToList());
+            var allTracksTasks = albums.Select(a => (Album: a, Tracks: this.PaginateAll(a.Tracks)));
+            await Task.WhenAll(allTracksTasks.Select(kv => kv.Tracks));
+            return allTracksTasks.ToDictionary(kv => kv.Album, kv => kv.Tracks.Result.Where(t => t.Artists.Any(a => a.Id == spotifyId)).ToList());
         }
 
         public async Task<FullArtist> GetArtist(string artistId)
@@ -163,14 +163,14 @@ namespace SpotifyTool.SpotifyAPI
 
         private Task BatchOperate<T>(List<T> items, int maxPerRequest, Func<List<T>, Task> executeFunction)
         {
-            return this.BatchOperateReturns(items, maxPerRequest, async batchItems =>
+            return BatchOperateReturns(items, maxPerRequest, async batchItems =>
             {
                 await executeFunction(batchItems);
                 return true;
             });
         }
 
-        private async Task<Tout[]> BatchOperateReturns<Tin, Tout>(List<Tin> items, int maxPerRequest, Func<List<Tin>, Task<Tout>> executeFunction)
+        private static async Task<Tout[]> BatchOperateReturns<Tin, Tout>(List<Tin> items, int maxPerRequest, Func<List<Tin>, Task<Tout>> executeFunction)
         {
             ICollection<Task<Tout>> tasks = new LinkedList<Task<Tout>>();
             for (int i = 0; i < items.Count; i += maxPerRequest)

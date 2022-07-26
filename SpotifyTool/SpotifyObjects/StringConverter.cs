@@ -7,13 +7,13 @@ namespace SpotifyTool.SpotifyObjects
 {
     public static class StringConverter
     {
-        private static readonly Regex SpotifyIdRegex = new Regex("^([1-9]|[a-z]|[A-Z]){22}$");
+        private static readonly Regex SpotifyIdRegex = new("^([1-9]|[a-z]|[A-Z]){22}$");
         private static readonly string SpotifyType = "("
             + String.Join("|", Enum.GetValues(typeof(SpotifyObjectTypes)).Cast<SpotifyObjectTypes>().Select(sot => sot.ToString()))
             + ")";
-        private static readonly Regex SpotifyUriRegex = new Regex("^spotify:" + SpotifyType + ":([1-9]|[a-z]|[A-Z]){22}$");
+        private static readonly Regex SpotifyUriRegex = new("^spotify:" + SpotifyType + ":([1-9]|[a-z]|[A-Z]){22}$");
 
-        public static string FullTrackToString(FullTrack fullTrack)
+        public static string FullTrackToString(FullTrack fullTrack, string additionalInfo = "")
         {
             string restrictions = "";
             if (fullTrack.Restrictions?.Any() ?? false)
@@ -21,12 +21,22 @@ namespace SpotifyTool.SpotifyObjects
                 restrictions = "; Restrictions: ";
                 restrictions += String.Join(",", fullTrack.Restrictions.Select(kv => "{" + kv.Key + ":" + kv.Value + "}"));
             }
-            return fullTrack.Name + " { " + String.Join(", ", fullTrack.Artists.Select(a => a.Name)) + restrictions + "; ID: " + fullTrack.Id + "}";
+            return fullTrack.Name + " { " + String.Join(", ", fullTrack.Artists.Select(a => a.Name)) + restrictions + "; ID: " + fullTrack.Id + additionalInfo + " }";
         }
 
         public static string AllTracksToString(string seperator, params FullTrack[] fullTracks)
         {
-            return String.Join(seperator, fullTracks.Select(FullTrackToString));
+            return String.Join(seperator, fullTracks.Select(ft => FullTrackToString(ft)));
+        }
+
+        public static string AllPlalistTracksToString(string seperator, params FullPlaylistTrack[] fullPlaylistTracks)
+        {
+            return String.Join(seperator, fullPlaylistTracks.Select(fpt => FullPlaylistTrackToString(fpt)));
+        }
+
+        public static string FullPlaylistTrackToString(FullPlaylistTrack fullPlaylistTrack)
+        {
+            return FullTrackToString(fullPlaylistTrack.TrackInfo, "; Added: " + fullPlaylistTrack.PlaylistInfo.AddedAt + "; IsLocal: " + fullPlaylistTrack.TrackInfo.IsLocal);
         }
 
         public static string PlaylistToString(SimplePlaylist pl)

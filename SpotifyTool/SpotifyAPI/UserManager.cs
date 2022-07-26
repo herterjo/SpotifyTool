@@ -18,7 +18,7 @@ namespace SpotifyTool.SpotifyAPI
 
         private async Task LogInRequest()
         {
-            Task<KeyValuePair<string, string>> appIDSecretTask = ConfigManager.GetClientIDAndSecretOrFromConsole();
+            var appIDSecretTask = ConfigManager.GetClientIDAndSecretOrFromConsole();
             Uri baseUri;
             if (this.server != null)
             {
@@ -30,8 +30,8 @@ namespace SpotifyTool.SpotifyAPI
             await this.server.Start();
             this.server.AuthorizationCodeReceived += this.OnAuthorizationCodeReceived;
             baseUri = this.server.BaseUri;
-            KeyValuePair<string, string> appIDSecret = await appIDSecretTask;
-            LoginRequest request = new LoginRequest(baseUri, appIDSecret.Key, LoginRequest.ResponseType.Code)
+            (string id, string _) = await appIDSecretTask;
+            LoginRequest request = new LoginRequest(baseUri, id, LoginRequest.ResponseType.Code)
             {
                 Scope = new List<string> {
                     Scopes.AppRemoteControl,
@@ -56,18 +56,18 @@ namespace SpotifyTool.SpotifyAPI
 
         private async Task OnAuthorizationCodeReceived(object sender, AuthorizationCodeResponse response)
         {
-            Task<KeyValuePair<string, string>> appIDSecretTask = ConfigManager.GetClientIDAndSecretOrFromConsole();
+            var appIDSecretTask = ConfigManager.GetClientIDAndSecretOrFromConsole();
             var callbackPortTask = ConfigManager.GetCallbackPort();
             await this.StopServerUnsafe();
             await Task.WhenAll(appIDSecretTask, callbackPortTask);
-            KeyValuePair<string, string> appIDAndSecret = appIDSecretTask.Result;
+            (string id, string secret) = appIDSecretTask.Result;
             var oAuthClient = new OAuthClient();
             AuthorizationCodeTokenResponse tokenResponse = await oAuthClient.RequestToken(
-              new AuthorizationCodeTokenRequest(appIDAndSecret.Key, appIDAndSecret.Value, response.Code, new Uri("http://localhost:"+ callbackPortTask.Result + "/callback"))
+              new AuthorizationCodeTokenRequest(id, secret, response.Code, new Uri("http://localhost:"+ callbackPortTask.Result + "/callback"))
             );
             SpotifyClientConfig spotifyConfig = SpotifyClientConfig
               .CreateDefault()
-              .WithAuthenticator(new AuthorizationCodeAuthenticator(appIDAndSecret.Key, appIDAndSecret.Value, tokenResponse));
+              .WithAuthenticator(new AuthorizationCodeAuthenticator(id, secret, tokenResponse));
             SpotifyClient spotifyClient = new SpotifyClient(spotifyConfig);
             this.SetSpotifyClient(spotifyClient);
             OnLogin.Invoke();
@@ -111,7 +111,7 @@ namespace SpotifyTool.SpotifyAPI
                 }
                 if (apiEx == null || retries > 1)
                 {
-                    throw ex;
+                    throw;
                 }
             }
             TaskCompletionSource<PrivateUser> loginTaskCompletionSource = new TaskCompletionSource<PrivateUser>();

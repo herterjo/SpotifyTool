@@ -24,14 +24,14 @@ namespace SpotifyTool.ConsoleMenu
 
         public async Task SyncMainAndSecond()
         {
-            KeyValuePair<string, string> ids = await GetMainAndSecondPlaylistIDs();
-            await Sync(ids.Key, ids.Value);
+            (string mainId, string secondId) = await GetMainAndSecondPlaylistIDs();
+            await Sync(mainId, secondId);
         }
 
         public async Task FindDoubleArtists()
         {
-            KeyValuePair<string, string> idsDoubleArtists = await GetMainAndSecondPlaylistIDs();
-            await FindDoubleArtists(idsDoubleArtists.Value);
+            (string _, string secondId) = await GetMainAndSecondPlaylistIDs();
+            await FindDoubleArtists(secondId);
         }
 
         public async Task CheckDoubleTracks()
@@ -48,33 +48,31 @@ namespace SpotifyTool.ConsoleMenu
 
         public async Task AllAnalytics()
         {
-            KeyValuePair<string, string> idsForAll = await GetMainAndSecondPlaylistIDs();
-            await AllAnalytics(idsForAll.Key, idsForAll.Value);
+            (string mainId, string secondId) = await GetMainAndSecondPlaylistIDs();
+            await AllAnalytics(mainId, secondId);
         }
 
-        private async Task<KeyValuePair<string, string>> GetMainAndSecondPlaylistIDs()
+        private async Task<(string MainId, string SecondId)> GetMainAndSecondPlaylistIDs()
         {
-            KeyValuePair<string, string> configIDs = await ConfigManager.GetMainAndOneArtistPlaylistID();
-            string mainID = configIDs.Key;
-            string secondID = configIDs.Value;
-            if (String.IsNullOrWhiteSpace(mainID))
+            (string mainId, string secondId) = await ConfigManager.GetMainAndOneArtistPlaylistID();
+            if (String.IsNullOrWhiteSpace(mainId))
             {
                 Console.WriteLine("Selecting main playlist:");
                 SimplePlaylist mainPL = await MenuHelper.ChoosePlaylistFromUserPlaylists();
-                mainID = mainPL.Id;
+                mainId = mainPL.Id;
             }
-            if (String.IsNullOrWhiteSpace(secondID))
+            if (String.IsNullOrWhiteSpace(secondId))
             {
                 Console.WriteLine("Selecting playlist where every artist is present only once:");
-                SimplePlaylist secondPL = await MenuHelper.ChoosePlaylistFromUserPlaylists(mainID);
-                secondID = secondPL.Id;
+                SimplePlaylist secondPL = await MenuHelper.ChoosePlaylistFromUserPlaylists(mainId);
+                secondId = secondPL.Id;
             }
-            if (mainID == secondID || mainID == null || secondID == null)
+            if (mainId == secondId || mainId == null || secondId == null)
             {
                 Console.WriteLine("Please select valid ids, and they can not be the same");
                 return await GetMainAndSecondPlaylistIDs();
             }
-            return new KeyValuePair<string, string>(mainID, secondID);
+            return (mainId, secondId);
         }
 
         private async Task PrintNonPlayableTracks(SimplePlaylist pl, string playlistID)
@@ -126,6 +124,7 @@ namespace SpotifyTool.ConsoleMenu
             await CheckDoubleLibraryTracks();
             await CrossCheckLikedAndPlaylist(null, mainID);
             await FindDoubleArtists(secondID);
+            await CheckSecondaryToPrimaryPlaylist(mainID, secondID);
             await Sync(mainID, secondID);
         }
 
@@ -193,7 +192,7 @@ namespace SpotifyTool.ConsoleMenu
             }
         }
 
-        public async Task RefreshAllUserPlaylistsAndLibraryTracks()
+        public static async Task RefreshAllUserPlaylistsAndLibraryTracks()
         {
             //Do this one after another to not generate too many requests
             await PlaylistManager.RefreshAllUserPlaylists();
@@ -208,11 +207,11 @@ namespace SpotifyTool.ConsoleMenu
             {
                 playlistID = playlist.Id;
             }
-            KeyValuePair<List<SavedTrack>, List<FullPlaylistTrack>> tracks = await Analytics.CrossCheckLikedAndPlaylist(playlist, playlistID);
+            (List<SavedTrack> missingFromPlaylist, List<FullPlaylistTrack> missingFromLibrary) = await Analytics.CrossCheckLikedAndPlaylist(playlist, playlistID);
             await LogFileManager.WriteToLogAndConsole("Tracks not in library but in playlist " + playlistID + ":");
-            if (tracks.Value.Any())
+            if (missingFromLibrary.Any())
             {
-                string notInLib = StringConverter.AllTracksToString("\n", tracks.Value.Select(fpt => fpt.TrackInfo).ToArray());
+                string notInLib = StringConverter.AllTracksToString("\n", missingFromLibrary.Select(fpt => fpt.TrackInfo).ToArray());
                 await LogFileManager.WriteToLogAndConsole(notInLib);
             }
             else
@@ -223,9 +222,9 @@ namespace SpotifyTool.ConsoleMenu
             await LogFileManager.WriteToLogAndConsole("\n");
 
             await LogFileManager.WriteToLogAndConsole("Tracks not in playlist " + playlistID + " but in library:");
-            if (tracks.Key.Any())
+            if (missingFromPlaylist.Any())
             {
-                string notInPl = StringConverter.AllTracksToString("\n", tracks.Key.Select(fpt => fpt.Track).ToArray());
+                string notInPl = StringConverter.AllTracksToString("\n", missingFromPlaylist.Select(fpt => fpt.Track).ToArray());
                 await LogFileManager.WriteToLogAndConsole(notInPl);
             }
             else
@@ -251,25 +250,73 @@ namespace SpotifyTool.ConsoleMenu
             await LogFileManager.WriteToLogAndConsole("\n");
         }
 
-        public async Task EnqueueArtistTracks()
+        public static async Task EnqueueArtistTracks()
         {
             var artistId = await MenuHelper.GetArtistId();
             Console.WriteLine("Please write 0 for all tracks and 1 for the tracks since the last liked one");
             var chosenInt = MenuHelper.GetInt(0, 1);
-            var onlyLatest = chosenInt == 0 ? false : true;
+            var onlyLatest = chosenInt != 0;
             Console.WriteLine("Please write 0 to exclude variants (remixes etc) for new found tracks and 1 to include all variants");
             chosenInt = MenuHelper.GetInt(0, 1);
-            var includeAllVariants = chosenInt == 0 ? false : true;
+            var includeAllVariants = chosenInt != 0;
             await DiscoveryManager.EnqueueFromArtistAlbums(artistId, onlyLatest, includeAllVariants);
         }
 
-        public async Task EnqueueArtistTopTracks()
+        public static async Task EnqueueArtistTopTracks()
         {
             var artistId = await MenuHelper.GetArtistId();
             Console.WriteLine("Please write 0 to exclude variants (remixes etc) for new found tracks and 1 to include all variants");
             var chosenInt = MenuHelper.GetInt(0, 1);
-            var includeAllVariants = chosenInt == 0 ? false : true;
+            var includeAllVariants = chosenInt != 0;
             await DiscoveryManager.EnqueueArtistTopTracks(artistId, includeAllVariants);
+        }
+
+        public async Task CheckSecondaryToPrimaryPlaylist()
+        {
+            (string primaryId, string secondaryId) = await GetMainAndSecondPlaylistIDs();
+            await CheckSecondaryToPrimaryPlaylist(primaryId, secondaryId);
+        }
+
+        public async Task CheckSecondaryToPrimaryPlaylist(string primaryId, string secondaryId)
+        {
+            var writeTask = LogFileManager.WriteToLogAndConsole("Tracks in secondary playlist " + primaryId + " but not in primary playlist " + secondaryId + ":");
+            var notInMain = await Analytics.GetTracksInSecondaryButNotInPrimary(primaryId, secondaryId);
+            await writeTask;
+            if (notInMain.Any())
+            {
+                string toAddLinkedString = StringConverter.AllPlalistTracksToString("\n", notInMain.ToArray());
+                await LogFileManager.WriteToLogAndConsole(toAddLinkedString);
+            }
+            else
+            {
+                await LogFileManager.WriteToLogAndConsole("None");
+            }
+            await LogFileManager.WriteToLogAndConsole("\n");
+
+            if (!notInMain.Any())
+            {
+                return;
+            }
+
+            Console.WriteLine("Would you like to remove the tracks from secondary playlist " + secondaryId + "? (y/n)");
+            string answer = Console.ReadLine();
+            await LogFileManager.WriteToLogAndConsole("\n");
+            if (answer != "y")
+            {
+                return;
+            }
+            try
+            {
+                using (PlaylistEditor plManager = await PlaylistEditor.GetPlaylistEditor(secondaryId))
+                {
+                    await plManager.Remove(notInMain.Select(fpt => fpt.TrackInfo).ToList());
+                }
+            }
+            catch (APIUnauthorizedException ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            await PlaylistManager.RefreshSinglePlaylist(secondaryId);
         }
     }
 }

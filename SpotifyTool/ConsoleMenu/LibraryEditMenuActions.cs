@@ -27,7 +27,7 @@ namespace SpotifyTool.ConsoleMenu
             await LibraryManager.UnlikeTracks(uris);
         }
 
-        public Task SearchLibrary()
+        public static Task SearchLibrary()
         {
             return MenuHelper.Search(async s =>
             {

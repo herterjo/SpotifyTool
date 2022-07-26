@@ -10,12 +10,12 @@ namespace SpotifyTool.ConsoleMenu
     {
         private readonly PlaylistEditMenuActions Actions;
 
-        private PlaylistEditMenu(PlaylistEditMenuActions playlistEditMenuActions) : base(new List<KeyValuePair<string, Func<Task>>>() {
-                    new KeyValuePair<string, Func<Task>>("Like and add", playlistEditMenuActions.LikeAndAdd),
-                    new KeyValuePair<string, Func<Task>>("Unlike and remove",  playlistEditMenuActions.UnlikeAndRemove),
-                    new KeyValuePair<string, Func<Task>>("Add", playlistEditMenuActions.Add),
-                    new KeyValuePair<string, Func<Task>>("Remove", playlistEditMenuActions.Remove),
-                    new KeyValuePair<string, Func<Task>>("Search in playlist", playlistEditMenuActions.SearchPlaylist),
+        private PlaylistEditMenu(PlaylistEditMenuActions playlistEditMenuActions) : base(new List<(string Name, Func<Task> Action)>() {
+                    ("Like and add", playlistEditMenuActions.LikeAndAdd),
+                    ("Unlike and remove",  playlistEditMenuActions.UnlikeAndRemove),
+                    ("Add", playlistEditMenuActions.Add),
+                    ("Remove", playlistEditMenuActions.Remove),
+                    ("Search in playlist", playlistEditMenuActions.SearchPlaylist),
                 }, 0)
         {
             OnExit += Dispose;

@@ -68,18 +68,18 @@ namespace SpotifyTool.Config
         //    return GetFromConfigOrConsole(c => c.OneArtistPlaylistID, "Please enter the Spotify ID of your playlist where every artist is present only once:");
         //}
 
-        public static async Task<KeyValuePair<string, string>> GetClientIDAndSecretOrFromConsole()
+        public static async Task<(string ClientId, string Secret)> GetClientIDAndSecretOrFromConsole()
         {
             ConfigContent appConfig = await Read();
             string clientID = await GetFromConfigOrConsole(c => c.ClientID, "Please enter your apps client ID", appConfig);
             string clientSecret = await GetFromConfigOrConsole(c => c.ClientSecret, "Please enter your apps client secret", appConfig);
-            return new KeyValuePair<string, string>(clientID, clientSecret);
+            return (clientID, clientSecret);
         }
 
-        public static async Task<KeyValuePair<string, string>> GetMainAndOneArtistPlaylistID()
+        public static async Task<(string MainId, string OneArtistId)> GetMainAndOneArtistPlaylistID()
         {
             ConfigContent appConfig = await Read();
-            return new KeyValuePair<string, string>(appConfig.MainPlaylistID, appConfig.OneArtistPlaylistID);
+            return (appConfig.MainPlaylistID, appConfig.OneArtistPlaylistID);
         }
     }
 }

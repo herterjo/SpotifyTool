@@ -12,27 +12,28 @@ namespace SpotifyTool.ConsoleMenu
         {
         }
 
-        private MainMenu(LogFileManager logFileManager, MainMenuActions mainMenuActions) : base(new List<KeyValuePair<string, Func<Task>>>() {
-                    new KeyValuePair<string, Func<Task>>("Log in", SpotifyAPIManager.Instance.GetUser),
-                    new KeyValuePair<string, Func<Task>>("Refresh all cached playlists and current library", mainMenuActions.RefreshAllUserPlaylistsAndLibraryTracks),
-                    new KeyValuePair<string, Func<Task>>("All analytics", mainMenuActions.AllAnalytics),
-                    new KeyValuePair<string, Func<Task>>("Get non playble tracks",  mainMenuActions.PrintNonPlayableTracks),
-                    new KeyValuePair<string, Func<Task>>("Get double tracks in playlist", mainMenuActions.CheckDoubleTracks),
-                    new KeyValuePair<string, Func<Task>>("Get double artists in playlist (one time transitive)", mainMenuActions.FindDoubleArtists),
-                    new KeyValuePair<string, Func<Task>>("Sync main playlist with ArtistOnlyOnce playlist", mainMenuActions.SyncMainAndSecond),
-                    new KeyValuePair<string, Func<Task>>("Get double tracks in library", mainMenuActions.CheckDoubleLibraryTracks),
-                    new KeyValuePair<string, Func<Task>>("Cross check users library with playlist", mainMenuActions.CrossCheckLikedAndPlaylist),
-                    new KeyValuePair<string, Func<Task>>("Edit playlist", async() => {
-                        PlaylistEditMenu menu = await PlaylistEditMenu.GetPlaylistEditMenuActions(logFileManager);
-                        await menu.UseMenu();
-                    }),
-                    new KeyValuePair<string, Func<Task>>("Edit library", async() => {
-                        LibraryEditMenu menu = new LibraryEditMenu(logFileManager);
-                        await menu.UseMenu();
-                    }),
-                    new KeyValuePair<string, Func<Task>>("Enqueue more tracks from artist", mainMenuActions.EnqueueArtistTracks),
-                    new KeyValuePair<string, Func<Task>>("Enqueue top tracks from artist", mainMenuActions.EnqueueArtistTopTracks)
-                }, 0)
+        private MainMenu(LogFileManager logFileManager, MainMenuActions mainMenuActions) : base(new List<(string Name, Func<Task> Action)>() {
+                ("Log in", SpotifyAPIManager.Instance.GetUser),
+                ("Refresh all cached playlists and current library", MainMenuActions.RefreshAllUserPlaylistsAndLibraryTracks),
+                ("All analytics", mainMenuActions.AllAnalytics),
+                ("Get non playble tracks",  mainMenuActions.PrintNonPlayableTracks),
+                ("Get double tracks in playlist", mainMenuActions.CheckDoubleTracks),
+                ("Get double artists in playlist (one time transitive)", mainMenuActions.FindDoubleArtists),
+                ("Remove items from ArtistOnlyOnce playlist missing from main playlist", mainMenuActions.CheckSecondaryToPrimaryPlaylist),
+                ("Sync main playlist with ArtistOnlyOnce playlist", mainMenuActions.SyncMainAndSecond),
+                ("Get double tracks in library", mainMenuActions.CheckDoubleLibraryTracks),
+                ("Cross check users library with playlist", mainMenuActions.CrossCheckLikedAndPlaylist),
+                ("Edit playlist", async() => {
+                    PlaylistEditMenu menu = await PlaylistEditMenu.GetPlaylistEditMenuActions(logFileManager);
+                    await menu.UseMenu();
+                }),
+                ("Edit library", async() => {
+                    LibraryEditMenu menu = new LibraryEditMenu(logFileManager);
+                    await menu.UseMenu();
+                }),
+                ("Enqueue more tracks from artist", MainMenuActions.EnqueueArtistTracks),
+                ("Enqueue top tracks from artist", MainMenuActions.EnqueueArtistTopTracks)
+            }, 0)
         {
         }
     }

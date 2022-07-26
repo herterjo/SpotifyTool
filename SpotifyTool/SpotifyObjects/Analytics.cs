@@ -140,7 +140,7 @@ namespace SpotifyTool.SpotifyObjects
             return toAddLinked;
         }
 
-        public static async Task<KeyValuePair<List<SavedTrack>, List<FullPlaylistTrack>>> CrossCheckLikedAndPlaylist(SimplePlaylist playlist, string playlistId)
+        public static async Task<(List<SavedTrack> MissingFromPlaylist, List<FullPlaylistTrack> MissingFromLibrary)> CrossCheckLikedAndPlaylist(SimplePlaylist playlist, string playlistId)
         {
             Task<List<FullPlaylistTrack>> playlistTrackTask;
             if (playlist != null)
@@ -164,12 +164,19 @@ namespace SpotifyTool.SpotifyObjects
             List<FullTrack> missingFromPL = fullTracksFromLibrary.Except(fullTracksFromPL, FullTrackEqualityComparer.Instance).ToList();
             if (missingFromPL.Count < 1 && fullTracksFromLibrary.Count == fullTracksFromPL.Count)
             {
-                return new KeyValuePair<List<SavedTrack>, List<FullPlaylistTrack>>(new List<SavedTrack>(), new List<FullPlaylistTrack>());
+                return (new List<SavedTrack>(), new List<FullPlaylistTrack>());
             }
             List<FullTrack> missingFromLibrary = fullTracksFromPL.Except(fullTracksFromLibrary, FullTrackEqualityComparer.Instance).ToList();
-            return new KeyValuePair<List<SavedTrack>, List<FullPlaylistTrack>>(
-                missingFromPL.Select(ft => libraryDict[ft.Uri]).ToList(),
-                missingFromLibrary.Select(ft => playlistDict[ft.Uri]).ToList());
+            return (missingFromPL.Select(ft => libraryDict[ft.Uri]).ToList(), missingFromLibrary.Select(ft => playlistDict[ft.Uri]).ToList());
+        }
+
+        public static async Task<List<FullPlaylistTrack>> GetTracksInSecondaryButNotInPrimary(string primaryPlaylistId, string secondaryPlaylistId)
+        {
+            var primaryTracks = await PlaylistManager.GetAllPlaylistTracks(primaryPlaylistId);
+            var secondaryTracksTask = PlaylistManager.GetAllPlaylistTracks(secondaryPlaylistId);
+            var primaryIds = primaryTracks.Select(fpt => fpt.TrackInfo.Uri).Distinct().ToHashSet();
+            var secondaryTracks = await secondaryTracksTask;
+            return secondaryTracks.Where(fpt => !primaryIds.Contains(fpt.TrackInfo.Uri)).ToList();
         }
     }
 }

@@ -47,10 +47,10 @@ namespace SpotifyTool.SpotifyAPI
                 {
                     return this.SpotifyClient;
                 }
-                KeyValuePair<string, string> clientIDAndSecret = await ConfigManager.GetClientIDAndSecretOrFromConsole();
+                (string clientId, string secret) = await ConfigManager.GetClientIDAndSecretOrFromConsole();
                 SpotifyClientConfig clientConfig = SpotifyClientConfig
                     .CreateDefault()
-                    .WithAuthenticator(new ClientCredentialsAuthenticator(clientIDAndSecret.Key, clientIDAndSecret.Value));
+                    .WithAuthenticator(new ClientCredentialsAuthenticator(clientId, secret));
                 SpotifyClient client = new SpotifyClient(clientConfig);
                 this.SetSpotifyClientUnsafe(client);
                 return this.SpotifyClient;

@@ -8,10 +8,10 @@ namespace SpotifyTool.ConsoleMenu
 {
     public class LibraryEditMenu : LoopMenu
     {
-        private LibraryEditMenu(LibraryEditMenuActions libraryEditMenuActions) : base(new List<KeyValuePair<string, Func<Task>>>() {
-                    new KeyValuePair<string, Func<Task>>("Like", libraryEditMenuActions.Like),
-                    new KeyValuePair<string, Func<Task>>("Unlike", libraryEditMenuActions.Unlike),
-                    new KeyValuePair<string, Func<Task>>("Search in library", libraryEditMenuActions.SearchLibrary)
+        private LibraryEditMenu(LibraryEditMenuActions libraryEditMenuActions) : base(new List<(string Name, Func<Task> Action)>() {
+                    ("Like", libraryEditMenuActions.Like),
+                    ("Unlike", libraryEditMenuActions.Unlike),
+                    ("Search in library", LibraryEditMenuActions.SearchLibrary)
                 }, 0)
         {
         }
