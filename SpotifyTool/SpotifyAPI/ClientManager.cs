@@ -1,5 +1,6 @@
 ﻿using Nito.AsyncEx;
 using SpotifyAPI.Web;
+using SpotifyAPI.Web.Http;
 using SpotifyTool.Config;
 using System;
 using System.Collections.Generic;
@@ -48,9 +49,13 @@ namespace SpotifyTool.SpotifyAPI
                     return this.SpotifyClient;
                 }
                 (string clientId, string secret) = await ConfigManager.GetClientIDAndSecretOrFromConsole();
+                var retryHandler = new SimpleRetryHandler();
+                var logging = new SimpleConsoleHTTPLogger();
                 SpotifyClientConfig clientConfig = SpotifyClientConfig
                     .CreateDefault()
-                    .WithAuthenticator(new ClientCredentialsAuthenticator(clientId, secret));
+                    .WithAuthenticator(new ClientCredentialsAuthenticator(clientId, secret))
+                    .WithRetryHandler(retryHandler)
+                    .WithHTTPLogger(logging);
                 SpotifyClient client = new SpotifyClient(clientConfig);
                 this.SetSpotifyClientUnsafe(client);
                 return this.SpotifyClient;

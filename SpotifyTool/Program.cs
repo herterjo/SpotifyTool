@@ -20,6 +20,8 @@ namespace SpotifyTool
             {
                 Console.WriteLine("Error: " + ex.ToString());
                 Console.ReadLine();
+
+                Main(args);
             }
 #endif
         }

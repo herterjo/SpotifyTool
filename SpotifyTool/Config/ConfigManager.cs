@@ -58,16 +58,6 @@ namespace SpotifyTool.Config
             return result;
         }
 
-        //public static Task<string> GetMainPlaylistID()
-        //{
-        //    return GetFromConfigOrConsole(c => c.MainPlaylistID, "Please enter the Spotify ID of your main playlist:");
-        //}
-
-        //public static Task<string> GetOneArtistPlaylistID()
-        //{
-        //    return GetFromConfigOrConsole(c => c.OneArtistPlaylistID, "Please enter the Spotify ID of your playlist where every artist is present only once:");
-        //}
-
         public static async Task<(string ClientId, string Secret)> GetClientIDAndSecretOrFromConsole()
         {
             ConfigContent appConfig = await Read();
