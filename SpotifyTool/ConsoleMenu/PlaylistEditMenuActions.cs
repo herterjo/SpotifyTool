@@ -19,7 +19,7 @@ namespace SpotifyTool.ConsoleMenu
 
         public static async Task<PlaylistEditMenuActions> GetUserEditMenuActions(LogFileManager logFileManager)
         {
-            SimplePlaylist playlist = await MenuHelper.ChoosePlaylistFromUserPlaylists();
+            FullPlaylist playlist = await MenuHelper.ChoosePlaylistFromUserPlaylists();
             PlaylistEditor editor = await PlaylistEditor.GetPlaylistEditor(playlist);
             await logFileManager.WriteToLog("Chosen playlist to edit: " + playlist.Id);
             return new PlaylistEditMenuActions(logFileManager, editor);

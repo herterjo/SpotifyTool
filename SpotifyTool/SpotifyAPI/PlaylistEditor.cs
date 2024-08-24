@@ -33,7 +33,7 @@ namespace SpotifyTool.SpotifyAPI
             return new PlaylistEditor(playlistId);
         }
 
-        public static async Task<PlaylistEditor> GetPlaylistEditor(SimplePlaylist playlist)
+        public static async Task<PlaylistEditor> GetPlaylistEditor(FullPlaylist playlist)
         {
             if (playlist == null)
             {

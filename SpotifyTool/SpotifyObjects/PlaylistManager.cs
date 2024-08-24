@@ -12,7 +12,7 @@ namespace SpotifyTool.SpotifyObjects
     {
         public const string PlaylistFileEnding = ".playlist.json";
 
-        private static string GetPlaylistFileName(SimplePlaylist pl)
+        private static string GetPlaylistFileName(FullPlaylist pl)
         {
             return GetPlaylistFileName(pl.Id);
         }
@@ -25,8 +25,8 @@ namespace SpotifyTool.SpotifyObjects
         public static async Task RefreshAllUserPlaylists()
         {
             SpotifyAPIManager spotifyAPIManager = SpotifyAPIManager.Instance;
-            List<SimplePlaylist> playlists = await spotifyAPIManager.GetPlaylistsFromCurrentUser();
-            List<SimplePlaylist> toRefresh = playlists.Where(pl => File.Exists(GetPlaylistFileName(pl))).ToList();
+            List<FullPlaylist> playlists = await spotifyAPIManager.GetPlaylistsFromCurrentUser();
+            List<FullPlaylist> toRefresh = playlists.Where(pl => File.Exists(GetPlaylistFileName(pl))).ToList();
             //Do this one after another to not generate too many requests
             foreach (var pl in toRefresh)
             {
@@ -39,23 +39,23 @@ namespace SpotifyTool.SpotifyObjects
             return RefreshSinglePlaylist(null, playlistID);
         }
 
-        public static Task<List<FullPlaylistTrack>> RefreshSinglePlaylist(SimplePlaylist simplePlaylist)
+        public static Task<List<FullPlaylistTrack>> RefreshSinglePlaylist(FullPlaylist FullPlaylist)
         {
-            return RefreshSinglePlaylist(simplePlaylist, null);
+            return RefreshSinglePlaylist(FullPlaylist, null);
         }
 
-        private static async Task<List<FullPlaylistTrack>> RefreshSinglePlaylist(SimplePlaylist simplePlaylist, string playlistID)
+        private static async Task<List<FullPlaylistTrack>> RefreshSinglePlaylist(FullPlaylist FullPlaylist, string playlistID)
         {
             string path;
             IList<PlaylistTrack<IPlayableItem>> allItems;
-            if (simplePlaylist != null)
+            if (FullPlaylist != null)
             {
-                playlistID = simplePlaylist.Id;
+                playlistID = FullPlaylist.Id;
             }
-            if (HasFirstTrackPageLoaded(simplePlaylist))
+            if (HasFirstTrackPageLoaded(FullPlaylist))
             {
-                allItems = await SpotifyAPIManager.Instance.PaginateAll(simplePlaylist.Tracks);
-                path = GetPlaylistFileName(simplePlaylist);
+                allItems = await SpotifyAPIManager.Instance.PaginateAll(FullPlaylist.Tracks);
+                path = GetPlaylistFileName(FullPlaylist);
             }
             else
             {
@@ -70,9 +70,9 @@ namespace SpotifyTool.SpotifyObjects
             return allPlaylistTracks;
         }
 
-        private static bool HasFirstTrackPageLoaded(SimplePlaylist simplePlaylist)
+        private static bool HasFirstTrackPageLoaded(FullPlaylist FullPlaylist)
         {
-            return simplePlaylist?.Tracks?.Items != null;
+            return FullPlaylist?.Tracks?.Items != null;
         }
 
         public static List<FullPlaylistTrack> GetPlaylistTracks(IList<PlaylistTrack<IPlayableItem>> allItems)
@@ -80,7 +80,7 @@ namespace SpotifyTool.SpotifyObjects
             return allItems.Where(i => i.Track.GetType() == typeof(FullTrack)).Select(i => new FullPlaylistTrack(i, (FullTrack)i.Track)).ToList();
         }
 
-        public static Task<List<FullPlaylistTrack>> GetAllPlaylistTracks(SimplePlaylist pl)
+        public static Task<List<FullPlaylistTrack>> GetAllPlaylistTracks(FullPlaylist pl)
         {
             return GetAllPlaylistTracks(pl, null);
         }
@@ -90,12 +90,34 @@ namespace SpotifyTool.SpotifyObjects
             return GetAllPlaylistTracks(null, plID);
         }
 
+        public static async Task<List<FullPlaylistTrack>> GetAllPlaylistsTracks(IEnumerable<FullPlaylist> pls)
+        {
+            var fullList = new List<FullPlaylistTrack>();
+            foreach (var pl in pls)
+            {
+                var playlistTracks = await GetAllPlaylistTracks(pl, null);
+                fullList.AddRange(playlistTracks);
+            }
+            return fullList;
+        }
+
+        public static async Task<List<FullPlaylistTrack>> GetAllPlaylistsTracks(IEnumerable<string> plIDs)
+        {
+            var fullList = new List<FullPlaylistTrack>();
+            foreach (var plId in plIDs)
+            {
+                var playlistTracks = await GetAllPlaylistTracks(null, plId);
+                fullList.AddRange(playlistTracks);
+            }
+            return fullList;
+        }
+
         public static List<FullTrack> GetAllPlaylistTrackInfo(List<FullPlaylistTrack> playlist)
         {
             return playlist.Select(fpt => fpt.TrackInfo).ToList();
         }
 
-        private static Task<List<FullPlaylistTrack>> GetAllPlaylistTracks(SimplePlaylist pl, string playlistID)
+        private static Task<List<FullPlaylistTrack>> GetAllPlaylistTracks(FullPlaylist pl, string playlistID)
         {
             string fn;
             if (pl != null)

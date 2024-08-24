@@ -1,1 +1,1 @@
-{"ClientID":null,"ClientSecret":null,"MainPlaylistID":null,"OneArtistPlaylistID":null, "CallbackPort": 5000}
+{"ClientID":null,"ClientSecret":null,"MainPlaylistIDs":[],"OneArtistPlaylistID":null, "CallbackPort": 5000}

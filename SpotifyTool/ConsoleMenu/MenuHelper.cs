@@ -11,9 +11,14 @@ namespace SpotifyTool.ConsoleMenu
 {
     public static class MenuHelper
     {
-        public static async Task<SimplePlaylist> ChoosePlaylistFromUserPlaylists(params string[] excludeIDs)
+        public static Task<FullPlaylist> ChoosePlaylistFromUserPlaylists(params string[] excludeIDs)
         {
-            List<SimplePlaylist> userPlaylists = await SpotifyAPIManager.Instance.GetPlaylistsFromCurrentUser();
+            return ChoosePlaylistFromUserPlaylists(false, excludeIDs);
+        }
+
+        private static async Task<FullPlaylist> ChoosePlaylistFromUserPlaylists(bool canBreak, params string[] excludeIDs)
+        {
+            List<FullPlaylist> userPlaylists = await SpotifyAPIManager.Instance.GetPlaylistsFromCurrentUser();
             if (excludeIDs != null)
             {
                 userPlaylists = userPlaylists.Where(pl => !excludeIDs.Contains(pl.Id)).ToList();
@@ -22,18 +27,51 @@ namespace SpotifyTool.ConsoleMenu
             {
                 return null;
             }
-            if (userPlaylists.Count == 1)
+            if (userPlaylists.Count == 1 && !canBreak)
             {
                 return userPlaylists[0];
             }
             Console.WriteLine("Choose a playlist:");
             for (int i = 0; i < userPlaylists.Count; i++)
             {
-                SimplePlaylist pl = userPlaylists[i];
+                FullPlaylist pl = userPlaylists[i];
                 Console.WriteLine((i + 1) + ") " + StringConverter.PlaylistToString(pl));
             }
-            int chosenInt = GetInt(1, userPlaylists.Count);
+
+            if (canBreak)
+            {
+                Console.WriteLine((userPlaylists.Count + 1) + ") --- No selection");
+            }
+
+            int chosenInt = GetInt(1, userPlaylists.Count + (canBreak ? 0 : 1));
+
+            if (canBreak && chosenInt > userPlaylists.Count)
+            {
+                return null;
+            }
+
             return userPlaylists[chosenInt - 1];
+        }
+
+        public static async Task<List<FullPlaylist>> ChoosePlaylistsFromUserPlaylists(params string[] excludeIDs)
+        {
+            List<FullPlaylist> chosenPlaylists = new();
+            FullPlaylist chosenPlaylist;
+            bool firstSpin = true;
+            do
+            {
+                chosenPlaylist = await ChoosePlaylistFromUserPlaylists(!firstSpin, chosenPlaylists.Select(pl => pl.Id).ToArray());
+                firstSpin = false;
+                if (chosenPlaylist == null)
+                {
+                    break;
+                }
+                else
+                {
+                    chosenPlaylists.Add(chosenPlaylist);
+                } 
+            } while (true);
+            return chosenPlaylists;
         }
 
         public static async Task<string> GetArtistId()

@@ -1,5 +1,6 @@
 ﻿using SpotifyAPI.Web;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -39,7 +40,7 @@ namespace SpotifyTool.SpotifyObjects
             return FullTrackToString(fullPlaylistTrack.TrackInfo, "; Added: " + fullPlaylistTrack.PlaylistInfo.AddedAt + "; IsLocal: " + fullPlaylistTrack.TrackInfo.IsLocal);
         }
 
-        public static string PlaylistToString(SimplePlaylist pl)
+        public static string PlaylistToString(FullPlaylist pl)
         {
             return pl.Name + " {" + pl.Id + "}";
         }
@@ -113,6 +114,28 @@ namespace SpotifyTool.SpotifyObjects
         {
             string id = GetIdFromSpotifyUrl(spotifyUrl);
             return "spotify:" + type.ToString() + ":" + id;
+        }
+
+        public static string GetPrintablePlaylistIds(IEnumerable<string> playlistIds, IEnumerable<FullPlaylist> playlists)
+        {
+            if (playlistIds == null)
+            {
+                return GetPrintablePlaylistIds(playlists);
+            }
+            else
+            {
+                return GetPrintablePlaylistIds(playlistIds);
+            }
+        }
+
+        public static string GetPrintablePlaylistIds(IEnumerable<string> playlistIds)
+        {
+            return String.Join(", ", playlistIds);
+        }
+
+        public static string GetPrintablePlaylistIds(IEnumerable<FullPlaylist> playlists)
+        {
+            return GetPrintablePlaylistIds(playlists.Select(pl => PlaylistToString(pl)));
         }
     }
 }

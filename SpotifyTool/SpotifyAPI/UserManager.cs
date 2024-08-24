@@ -65,8 +65,7 @@ namespace SpotifyTool.SpotifyAPI
             AuthorizationCodeTokenResponse tokenResponse = await oAuthClient.RequestToken(
               new AuthorizationCodeTokenRequest(id, secret, response.Code, new Uri("http://localhost:"+ callbackPortTask.Result + "/callback"))
             );
-            SpotifyClientConfig spotifyConfig = SpotifyClientConfig
-              .CreateDefault()
+            SpotifyClientConfig spotifyConfig = GetClientConfig()
               .WithAuthenticator(new AuthorizationCodeAuthenticator(id, secret, tokenResponse));
             SpotifyClient spotifyClient = new SpotifyClient(spotifyConfig);
             this.SetSpotifyClient(spotifyClient);

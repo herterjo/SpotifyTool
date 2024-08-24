@@ -9,33 +9,33 @@ namespace SpotifyTool.SpotifyObjects
 {
     public static class Analytics
     {
-        public static async Task<FullTrack[]> GetNonPlayableTracks(SimplePlaylist pl, string playlistID)
+        public static async Task<FullTrack[]> GetNonPlayableTracks(IEnumerable<FullPlaylist> pls, IEnumerable<string> playlistIDs)
         {
             PrivateUser user = await SpotifyAPIManager.Instance.GetUser();
             string country = user.Country;
-            List<FullTrack> allPlaylistTracks = await GetAllPlaylistTracks(pl, playlistID);
+            List<FullTrack> allPlaylistTracks = await GetAllPlaylistsTracks(pls, playlistIDs);
             FullTrack[] nonPlayableTracks = allPlaylistTracks.Where(t => !t.IsPlayable || t.IsLocal).ToArray();
             return nonPlayableTracks;
         }
 
-        private static async Task<List<FullTrack>> GetAllPlaylistTracks(SimplePlaylist pl, string playlistID)
+        private static async Task<List<FullTrack>> GetAllPlaylistsTracks(IEnumerable<FullPlaylist> pls, IEnumerable<string> playlistIDs)
         {
             List<FullPlaylistTrack> allFullPlaylistTracks;
-            if (pl != null)
+            if (pls != null)
             {
-                allFullPlaylistTracks = await PlaylistManager.GetAllPlaylistTracks(pl);
+                allFullPlaylistTracks = await PlaylistManager.GetAllPlaylistsTracks(pls);
             }
             else
             {
-                allFullPlaylistTracks = await PlaylistManager.GetAllPlaylistTracks(playlistID);
+                allFullPlaylistTracks = await PlaylistManager.GetAllPlaylistsTracks(playlistIDs);
             }
 
             return PlaylistManager.GetAllPlaylistTrackInfo(allFullPlaylistTracks);
         }
 
-        public static async Task<FullTrack[]> GetDoubleTracks(SimplePlaylist pl, string playlistID)
+        public static async Task<FullTrack[]> GetDoubleTracks(IEnumerable<FullPlaylist> pls, IEnumerable<string> playlistIDs)
         {
-            List<FullTrack> allPlaylistTracks = await GetAllPlaylistTracks(pl, playlistID);
+            List<FullTrack> allPlaylistTracks = await GetAllPlaylistsTracks(pls, playlistIDs);
             return CheckDouble(allPlaylistTracks);
         }
 
@@ -140,16 +140,16 @@ namespace SpotifyTool.SpotifyObjects
             return toAddLinked;
         }
 
-        public static async Task<(List<SavedTrack> MissingFromPlaylist, List<FullPlaylistTrack> MissingFromLibrary)> CrossCheckLikedAndPlaylist(SimplePlaylist playlist, string playlistId)
+        public static async Task<(List<SavedTrack> MissingFromPlaylist, List<FullPlaylistTrack> MissingFromLibrary)> CrossCheckLikedAndPlaylist(IEnumerable<FullPlaylist> playlists, IEnumerable<string> playlistIds)
         {
             Task<List<FullPlaylistTrack>> playlistTrackTask;
-            if (playlist != null)
+            if (playlists != null)
             {
-                playlistTrackTask = PlaylistManager.GetAllPlaylistTracks(playlist);
+                playlistTrackTask = PlaylistManager.GetAllPlaylistsTracks(playlists);
             }
             else
             {
-                playlistTrackTask = PlaylistManager.GetAllPlaylistTracks(playlistId);
+                playlistTrackTask = PlaylistManager.GetAllPlaylistsTracks(playlistIds);
             }
 
             Task<List<SavedTrack>> libraryTracksTask = LibraryManager.GetLibraryTracksForCurrentUser();
@@ -170,9 +170,9 @@ namespace SpotifyTool.SpotifyObjects
             return (missingFromPL.Select(ft => libraryDict[ft.Uri]).ToList(), missingFromLibrary.Select(ft => playlistDict[ft.Uri]).ToList());
         }
 
-        public static async Task<List<FullPlaylistTrack>> GetTracksInSecondaryButNotInPrimary(string primaryPlaylistId, string secondaryPlaylistId)
+        public static async Task<List<FullPlaylistTrack>> GetTracksInSecondaryButNotInPrimary(IEnumerable<string> primaryPlaylistIds, string secondaryPlaylistId)
         {
-            var primaryTracks = await PlaylistManager.GetAllPlaylistTracks(primaryPlaylistId);
+            var primaryTracks = await PlaylistManager.GetAllPlaylistsTracks(primaryPlaylistIds);
             var secondaryTracksTask = PlaylistManager.GetAllPlaylistTracks(secondaryPlaylistId);
             var primaryIds = primaryTracks.Select(fpt => fpt.TrackInfo.Uri).Distinct().ToHashSet();
             var secondaryTracks = await secondaryTracksTask;

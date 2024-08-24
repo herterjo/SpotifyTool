@@ -66,10 +66,10 @@ namespace SpotifyTool.Config
             return (clientID, clientSecret);
         }
 
-        public static async Task<(string MainId, string OneArtistId)> GetMainAndOneArtistPlaylistID()
+        public static async Task<(string[] MainIds, string OneArtistId)> GetMainAndOneArtistPlaylistID()
         {
             ConfigContent appConfig = await Read();
-            return (appConfig.MainPlaylistID, appConfig.OneArtistPlaylistID);
+            return (appConfig.MainPlaylistIDs, appConfig.OneArtistPlaylistID);
         }
     }
 }

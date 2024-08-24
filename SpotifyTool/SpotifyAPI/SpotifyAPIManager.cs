@@ -29,13 +29,13 @@ namespace SpotifyTool.SpotifyAPI
         {
         }
 
-        public async Task<List<SimplePlaylist>> GetPlaylistsFromCurrentUser()
+        public async Task<List<FullPlaylist>> GetPlaylistsFromCurrentUser()
         {
             PrivateUser user = await this.GetUser();
             string userID = user.Id;
             SpotifyClient spotifyClient = await this.GetSpotifyClient();
-            Paging<SimplePlaylist> playlistsFirstPage = await spotifyClient.Playlists.GetUsers(userID);
-            IList<SimplePlaylist> allPlaylists = await spotifyClient.PaginateAll(playlistsFirstPage);
+            Paging<FullPlaylist> playlistsFirstPage = await spotifyClient.Playlists.GetUsers(userID);
+            IList<FullPlaylist> allPlaylists = await spotifyClient.PaginateAll(playlistsFirstPage);
             return allPlaylists.Where(p => p.Owner.Id == userID).ToList();
         }
 
@@ -69,7 +69,7 @@ namespace SpotifyTool.SpotifyAPI
             await this.BatchOperate(toRemove, MaxPlaylistTrackModify, items => manager.Playlists.RemoveItems(playlistID, new PlaylistRemoveItemsRequest() { Tracks = items }));
         }
 
-        public async Task<bool> IsCurrentUserOwner(SimplePlaylist playlist)
+        public async Task<bool> IsCurrentUserOwner(FullPlaylist playlist)
         {
             PrivateUser currentUser = await this.GetUser();
             return currentUser.Id == playlist.Owner.Id;
@@ -77,7 +77,7 @@ namespace SpotifyTool.SpotifyAPI
 
         public async Task<bool> IsCurrentUserOwner(string playlistID)
         {
-            List<SimplePlaylist> userPlaylists = await this.GetPlaylistsFromCurrentUser();
+            List<FullPlaylist> userPlaylists = await this.GetPlaylistsFromCurrentUser();
             return userPlaylists.Any(p => p.Id == playlistID);
         }
 
