@@ -25,8 +25,8 @@ namespace SpotifyTool.SpotifyAPI
                 await this.StopServerUnsafe();
             }
             var callbackPort = await ConfigManager.GetCallbackPort();
-            // Make sure "http://localhost:*callbackPort*/callback" is in your spotify application as redirect uri!
-            this.server = new EmbedIOAuthServer(new Uri("http://localhost:" + callbackPort + "/callback"), callbackPort);
+            // Make sure "http://127.0.0.1:*callbackPort*/callback" is in your spotify application as redirect uri!
+            this.server = new EmbedIOAuthServer(new Uri("http://127.0.0.1:" + callbackPort + "/callback"), callbackPort);
             await this.server.Start();
             this.server.AuthorizationCodeReceived += this.OnAuthorizationCodeReceived;
             baseUri = this.server.BaseUri;
@@ -63,7 +63,7 @@ namespace SpotifyTool.SpotifyAPI
             (string id, string secret) = appIDSecretTask.Result;
             var oAuthClient = new OAuthClient();
             AuthorizationCodeTokenResponse tokenResponse = await oAuthClient.RequestToken(
-              new AuthorizationCodeTokenRequest(id, secret, response.Code, new Uri("http://localhost:"+ callbackPortTask.Result + "/callback"))
+              new AuthorizationCodeTokenRequest(id, secret, response.Code, new Uri("http://127.0.0.1:"+ callbackPortTask.Result + "/callback"))
             );
             SpotifyClientConfig spotifyConfig = GetClientConfig()
               .WithAuthenticator(new AuthorizationCodeAuthenticator(id, secret, tokenResponse));
