@@ -43,7 +43,7 @@ namespace SpotifyTool.ConsoleMenu
                 Console.WriteLine((userPlaylists.Count + 1) + ") --- No selection");
             }
 
-            int chosenInt = GetInt(1, userPlaylists.Count + (canBreak ? 0 : 1));
+            int chosenInt = GetInt(1, userPlaylists.Count + (canBreak ? 1 : 0));
 
             if (canBreak && chosenInt > userPlaylists.Count)
             {
