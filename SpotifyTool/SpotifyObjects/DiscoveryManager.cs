@@ -9,15 +9,15 @@ namespace SpotifyTool.SpotifyObjects
 {
     public static class DiscoveryManager
     {
-        public static async Task EnqueueArtistTopTracks(string artistId, bool includeAllVariations)
-        {
-            //Execute login request first so that other tasks can be executed async which may spawn multiple login requests
-            await SpotifyAPIManager.Instance.GetUser();
-            Task<List<SavedTrack>> libraryTask = LibraryManager.GetLibraryTracksForCurrentUser();
-            var topTracks = await SpotifyAPIManager.Instance.GetAllArtistTopTracks(artistId);
-            var topTracksAlbum = new IEnumerable<TrackSubset>[] { topTracks.Select(tt => new TrackSubset(tt)) };
-            await Enqueue(false, includeAllVariations, libraryTask, topTracksAlbum);
-        }
+        //public static async Task EnqueueArtistTopTracks(string artistId, bool includeAllVariations)
+        //{
+        //    //Execute login request first so that other tasks can be executed async which may spawn multiple login requests
+        //    await SpotifyAPIManager.Instance.GetUser();
+        //    Task<List<SavedTrack>> libraryTask = LibraryManager.GetLibraryTracksForCurrentUser();
+        //    var topTracks = await SpotifyAPIManager.Instance.GetAllArtistTopTracks(artistId);
+        //    var topTracksAlbum = new IEnumerable<TrackSubset>[] { topTracks.Select(tt => new TrackSubset(tt)) };
+        //    await Enqueue(false, includeAllVariations, libraryTask, topTracksAlbum);
+        //}
 
         public static async Task EnqueueFromArtistAlbums(string artistId, bool onlyLatest, bool includeAllVariations)
         {
@@ -40,7 +40,7 @@ namespace SpotifyTool.SpotifyObjects
             List<SavedTrack> libraryResult = await libraryTask;
             TrackSubset[] libraryTracks = libraryResult.Select(pt => new TrackSubset(pt.Track)).OrderBy(t => t.LowerName).ToArray();
             Dictionary<string, TrackSubset> libraryDictionary = libraryTracks.Distinct(TrackSubsetEqualityComparer.Instance).ToDictionary(t => t.Id, t => t);
-            List<TrackSubset> toEnqueue = new List<TrackSubset>();
+            List<TrackSubset> toEnqueue = [];
             foreach (var album in orderedArtistAlbumTracks)
             {
                 ICollection<TrackSubset> toAdd = new LinkedList<TrackSubset>();

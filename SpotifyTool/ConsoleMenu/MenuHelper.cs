@@ -23,7 +23,7 @@ namespace SpotifyTool.ConsoleMenu
             {
                 userPlaylists = userPlaylists.Where(pl => !excludeIDs.Contains(pl.Id)).ToList();
             }
-            if (!userPlaylists.Any())
+            if (userPlaylists.Count == 0)
             {
                 return null;
             }
@@ -53,15 +53,14 @@ namespace SpotifyTool.ConsoleMenu
             return userPlaylists[chosenInt - 1];
         }
 
-        public static async Task<List<FullPlaylist>> ChoosePlaylistsFromUserPlaylists(params string[] excludeIDs)
+        public static async Task<List<FullPlaylist>> ChoosePlaylistsFromUserPlaylists(bool forceAtLeastOne = true, params string[] excludeIDs)
         {
-            List<FullPlaylist> chosenPlaylists = new();
+            List<FullPlaylist> chosenPlaylists = [];
             FullPlaylist chosenPlaylist;
-            bool firstSpin = true;
             do
             {
-                chosenPlaylist = await ChoosePlaylistFromUserPlaylists(!firstSpin, chosenPlaylists.Select(pl => pl.Id).ToArray());
-                firstSpin = false;
+                chosenPlaylist = await ChoosePlaylistFromUserPlaylists(!forceAtLeastOne, chosenPlaylists.Select(pl => pl.Id).Concat(excludeIDs).ToArray());
+                forceAtLeastOne = false;
                 if (chosenPlaylist == null)
                 {
                     break;
@@ -126,10 +125,10 @@ namespace SpotifyTool.ConsoleMenu
             }
             searchString = searchString.ToLowerInvariant();
             List<FullTrack> allTracks = await getFullTracks(searchString);
-            FullTrack[] found = allTracks.Where(t => t.Uri.ToLowerInvariant().Contains(searchString)
-                    || t.Name.ToLowerInvariant().Contains(searchString)
-                    || t.Artists.Any(a => a.Name.ToLowerInvariant().Contains(searchString))
-                    || t.Album.Name.ToLowerInvariant().Contains(searchString))
+            FullTrack[] found = allTracks.Where(t => t.Uri.Contains(searchString, StringComparison.InvariantCultureIgnoreCase)
+                    || t.Name.Contains(searchString, StringComparison.InvariantCultureIgnoreCase)
+                    || t.Artists.Any(a => a.Name.Contains(searchString, StringComparison.InvariantCultureIgnoreCase))
+                    || t.Album.Name.Contains(searchString, StringComparison.InvariantCultureIgnoreCase))
                 .ToArray();
             Console.WriteLine(StringConverter.AllTracksToString("\n", found));
         }
@@ -144,6 +143,32 @@ namespace SpotifyTool.ConsoleMenu
             List<string> uris = Console.ReadLine().Split(" ").Where(s => !String.IsNullOrWhiteSpace(s)).Select(s => StringConverter.GetUri(s, SpotifyObjectTypes.track)).ToList();
             await logFileManager.WriteToLog(String.Join(" ", uris));
             return uris;
+        }
+
+        public static async Task<List<FullPlaylist>> GetUserAndManualPlaylists()
+        {
+            var playlists = await MenuHelper.ChoosePlaylistsFromUserPlaylists(false);
+            do
+            {
+                Console.WriteLine("Add other playlist id (enter nothing and press enter to continue without another playlist): ");
+                var playlistId = Console.ReadLine();
+                if (String.IsNullOrWhiteSpace(playlistId))
+                {
+                    break;
+                }
+                try
+                {
+                    var manualPlaylist = await SpotifyAPIManager.Instance.GetPlaylist(playlistId);
+                    if (manualPlaylist != null)
+                    {
+                        playlists.Add(manualPlaylist);
+                        break;
+                    }
+                }
+                catch (Exception) { }
+                Console.WriteLine("Could not find playlist, please try again");
+            } while (true);
+            return playlists;
         }
     }
 }

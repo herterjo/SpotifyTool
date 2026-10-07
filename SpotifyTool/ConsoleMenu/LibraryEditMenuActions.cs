@@ -9,12 +9,8 @@ using System.Threading.Tasks;
 
 namespace SpotifyTool.ConsoleMenu
 {
-    public class LibraryEditMenuActions : LogFileManagerContainer
+    public class LibraryEditMenuActions(LogFileManager logFileManager) : LogFileManagerContainer(logFileManager)
     {
-        public LibraryEditMenuActions(LogFileManager logFileManager) : base(logFileManager)
-        {
-        }
-
         public async Task Like()
         {
             List<string> uris = await MenuHelper.GetTrackUris("like", LogFileManager);

@@ -11,7 +11,7 @@ namespace SpotifyTool.SpotifyAPI
     {
         public string PlaylistID { get; }
         public bool Valid { get; private set; }
-        public static readonly APIUnauthorizedException UserNotOwnerException = new APIUnauthorizedException("Current user is not owner of playlist");
+        public static readonly APIUnauthorizedException UserNotOwnerException = new("Current user is not owner of playlist");
 
         protected PlaylistEditor(string playlistID)
         {
@@ -22,10 +22,7 @@ namespace SpotifyTool.SpotifyAPI
 
         public static async Task<PlaylistEditor> GetPlaylistEditor(string playlistId)
         {
-            if (playlistId == null)
-            {
-                throw new ArgumentNullException(nameof(playlistId));
-            }
+            ArgumentNullException.ThrowIfNull(playlistId);
             if (!await SpotifyAPIManager.Instance.IsCurrentUserOwner(playlistId))
             {
                 throw UserNotOwnerException;
@@ -35,10 +32,7 @@ namespace SpotifyTool.SpotifyAPI
 
         public static async Task<PlaylistEditor> GetPlaylistEditor(FullPlaylist playlist)
         {
-            if (playlist == null)
-            {
-                throw new ArgumentNullException(nameof(playlist));
-            }
+            ArgumentNullException.ThrowIfNull(playlist);
             if (!await SpotifyAPIManager.Instance.IsCurrentUserOwner(playlist))
             {
                 throw UserNotOwnerException;

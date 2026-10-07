@@ -36,10 +36,7 @@ namespace SpotifyTool.Config
 
         private static async Task<string> GetFromConfigOrConsole(Func<ConfigContent, string> configGetter, string printLn, ConfigContent appConfig = null)
         {
-            if (appConfig == null)
-            {
-                appConfig = await Read();
-            }
+            appConfig ??= await Read();
             string result = configGetter(appConfig);
             if (!String.IsNullOrEmpty(result))
             {

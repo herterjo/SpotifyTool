@@ -7,7 +7,7 @@ namespace SpotifyTool.Config
 {
     public static class Serialization
     {
-        private readonly static Dictionary<string, object> ReadonlyCache = new Dictionary<string, object>();
+        private readonly static Dictionary<string, object> ReadonlyCache = [];
 
         public static Task SerializeJson(object obj, string fileName, bool isMutable = true)
         {
@@ -20,8 +20,7 @@ namespace SpotifyTool.Config
         }
         public async static Task<T> DeserializeJson<T>(string fileName, bool isMutable = true)
         {
-            object outValue;
-            if (!isMutable && ReadonlyCache.TryGetValue(fileName, out outValue))
+            if (!isMutable && ReadonlyCache.TryGetValue(fileName, out var outValue))
             {
                 return (T)outValue;
             }

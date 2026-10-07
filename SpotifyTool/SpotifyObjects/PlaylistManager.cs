@@ -1,6 +1,7 @@
 ﻿using SpotifyAPI.Web;
 using SpotifyTool.Config;
 using SpotifyTool.SpotifyAPI;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -25,12 +26,28 @@ namespace SpotifyTool.SpotifyObjects
         public static async Task RefreshAllUserPlaylists()
         {
             SpotifyAPIManager spotifyAPIManager = SpotifyAPIManager.Instance;
-            List<FullPlaylist> playlists = await spotifyAPIManager.GetPlaylistsFromCurrentUser();
-            List<FullPlaylist> toRefresh = playlists.Where(pl => File.Exists(GetPlaylistFileName(pl))).ToList();
+            var currentDirectory = Directory.GetCurrentDirectory();
+            var playlistIds = Directory.EnumerateFiles(currentDirectory)
+                .Select(p => Path.GetFileName(p))
+                .Where(f => f.EndsWith(PlaylistFileEnding))
+                .Select(f => f[..^PlaylistFileEnding.Length])
+                .ToList();
             //Do this one after another to not generate too many requests
-            foreach (var pl in toRefresh)
+            foreach (var playlistId in playlistIds)
             {
-                await RefreshSinglePlaylist(pl);
+                FullPlaylist playlist;
+                try
+                {
+                    playlist = await spotifyAPIManager.GetPlaylist(playlistId);
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
+                if (playlist != null)
+                {
+                    await RefreshSinglePlaylist(playlist);
+                }
             }
         }
 
@@ -39,23 +56,23 @@ namespace SpotifyTool.SpotifyObjects
             return RefreshSinglePlaylist(null, playlistID);
         }
 
-        public static Task<List<FullPlaylistTrack>> RefreshSinglePlaylist(FullPlaylist FullPlaylist)
+        public static Task<List<FullPlaylistTrack>> RefreshSinglePlaylist(FullPlaylist fullPlaylist)
         {
-            return RefreshSinglePlaylist(FullPlaylist, null);
+            return RefreshSinglePlaylist(fullPlaylist, null);
         }
 
-        private static async Task<List<FullPlaylistTrack>> RefreshSinglePlaylist(FullPlaylist FullPlaylist, string playlistID)
+        private static async Task<List<FullPlaylistTrack>> RefreshSinglePlaylist(FullPlaylist fullPlaylist, string playlistID)
         {
             string path;
             IList<PlaylistTrack<IPlayableItem>> allItems;
-            if (FullPlaylist != null)
+            if (fullPlaylist != null)
             {
-                playlistID = FullPlaylist.Id;
+                playlistID = fullPlaylist.Id;
             }
-            if (HasFirstTrackPageLoaded(FullPlaylist))
+            if (HasFirstTrackPageLoaded(fullPlaylist))
             {
-                allItems = await SpotifyAPIManager.Instance.PaginateAll(FullPlaylist.Tracks);
-                path = GetPlaylistFileName(FullPlaylist);
+                allItems = await SpotifyAPIManager.Instance.PaginateAll(fullPlaylist.Items);
+                path = GetPlaylistFileName(fullPlaylist);
             }
             else
             {
@@ -64,18 +81,16 @@ namespace SpotifyTool.SpotifyObjects
             }
 
             List<FullPlaylistTrack> allPlaylistTracks = GetPlaylistTracks(allItems);
-            //string playlistJSON = JsonConvert.SerializeObject(allPlaylistTracks);
-            //await File.WriteAllTextAsync(path, playlistJSON);
             await Serialization.SerializeJson(allPlaylistTracks, path, false);
             return allPlaylistTracks;
         }
 
-        private static bool HasFirstTrackPageLoaded(FullPlaylist FullPlaylist)
+        private static bool HasFirstTrackPageLoaded(FullPlaylist fullPlaylist)
         {
-            return FullPlaylist?.Tracks?.Items != null;
+            return fullPlaylist?.Items?.Items != null;
         }
 
-        public static List<FullPlaylistTrack> GetPlaylistTracks(IList<PlaylistTrack<IPlayableItem>> allItems)
+        public static List<FullPlaylistTrack> GetPlaylistTracks(IEnumerable<PlaylistTrack<IPlayableItem>> allItems)
         {
             return allItems.Where(i => i.Track.GetType() == typeof(FullTrack)).Select(i => new FullPlaylistTrack(i, (FullTrack)i.Track)).ToList();
         }

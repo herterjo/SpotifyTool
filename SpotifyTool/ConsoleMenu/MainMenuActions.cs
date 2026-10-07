@@ -10,16 +10,86 @@ using System.Threading.Tasks;
 
 namespace SpotifyTool.ConsoleMenu
 {
-    public class MainMenuActions : LogFileManagerContainer
+    public class MainMenuActions(LogFileManager logFileManager) : LogFileManagerContainer(logFileManager)
     {
-        public MainMenuActions(LogFileManager logFileManager) : base(logFileManager)
-        {
-        }
-
         public async Task CrossCheckLikedAndPlaylist()
         {
             List<FullPlaylist> ccPL = await MenuHelper.ChoosePlaylistsFromUserPlaylists();
             await CrossCheckLikedAndPlaylist(ccPL, null);
+        }
+
+        public static async Task RandomPlaylistSubset()
+        {
+            List<FullPlaylist> playlists;
+            List<FullPlaylistTrack> allTracks;
+
+            do
+            {
+                playlists = await MenuHelper.GetUserAndManualPlaylists();
+
+                if (playlists.Count == 0)
+                {
+                    Console.WriteLine("You must at least select one playlist");
+                    continue;
+                }
+
+                allTracks = await PlaylistManager.GetAllPlaylistsTracks(playlists);
+                allTracks = allTracks.DistinctBy(t => t.TrackInfo.Id).ToList();
+
+                if (allTracks.Count == 0)
+                {
+                    Console.WriteLine("You must at least select one playlist with tracks");
+                    continue;
+                }
+
+                break;
+            } while (true);
+
+            int itemsNumber;
+            do
+            {
+                Console.WriteLine("Choose how many items should be in the resulting playlist: ");
+                var itemsNumberString = Console.ReadLine();
+                if (!String.IsNullOrWhiteSpace(itemsNumberString) && Int32.TryParse(itemsNumberString, out itemsNumber) && itemsNumber > 0)
+                {
+                    break;
+                }
+                Console.WriteLine("Entered string was not a integer greater than 0, please try again!");
+            } while (true);
+
+            string playlistName;
+            do
+            {
+                Console.WriteLine("Choose how the new playlist should be named: ");
+                playlistName = Console.ReadLine();
+                if (String.IsNullOrWhiteSpace(playlistName))
+                {
+                    Console.WriteLine("No name was entered, please try again!");
+                    continue;
+                }
+                var userPlaylists = await SpotifyAPIManager.Instance.GetPlaylistsFromCurrentUser();
+                var userPlaylistNames = userPlaylists.Select(x => x.Name).ToHashSet();
+                if (userPlaylistNames.Contains(playlistName))
+                {
+                    Console.WriteLine("There is already a playlist with that name for the current user, please try again!");
+                    continue;
+                }
+                break;
+            } while (true);
+
+            
+            itemsNumber = Math.Min(itemsNumber, allTracks.Count);
+            var randomTrackUris = new List<string>(itemsNumber);
+            for (var i = 0; i < itemsNumber; i++)
+            {
+                var randomInt = Random.Shared.Next(0, allTracks.Count);
+                var randomTrack = allTracks[randomInt];
+                allTracks.RemoveAt(randomInt);
+                randomTrackUris.Add(randomTrack.TrackInfo.Uri);
+            }
+
+            var playlist = await SpotifyAPIManager.Instance.CreatePlaylist(playlistName, "Random subset of playlists " + String.Join(", ", playlists.Select(p => p.Name + "(" + p.Uri + ")")));
+            await SpotifyAPIManager.Instance.AddToPlaylist(playlist.Id, randomTrackUris);
         }
 
         public async Task SyncMainAndSecond()
@@ -52,11 +122,11 @@ namespace SpotifyTool.ConsoleMenu
             await AllAnalytics(mainIds, secondId);
         }
 
-        private async Task<(string[] MainIds, string SecondId)> GetMainAndSecondPlaylistIDs()
+        private static async Task<(string[] MainIds, string SecondId)> GetMainAndSecondPlaylistIDs()
         {
             (string[] mainIds, string secondId) = await ConfigManager.GetMainAndOneArtistPlaylistID();
             mainIds = mainIds?.Where(m => !String.IsNullOrWhiteSpace(m)).ToArray();
-            if (mainIds == null || !mainIds.Any())
+            if (mainIds == null || mainIds.Length == 0)
             {
                 Console.WriteLine("Selecting main playlist:");
                 List<FullPlaylist> mainPLs = await MenuHelper.ChoosePlaylistsFromUserPlaylists();
@@ -68,7 +138,7 @@ namespace SpotifyTool.ConsoleMenu
                 FullPlaylist secondPL = await MenuHelper.ChoosePlaylistFromUserPlaylists(mainIds);
                 secondId = secondPL.Id;
             }
-            if (!mainIds.Any() || secondId == null || mainIds.Any(id => id == secondId))
+            if (mainIds.Length == 0 || secondId == null || mainIds.Any(id => id == secondId))
             {
                 Console.WriteLine("Please select valid ids, and they can not be the same");
                 return await GetMainAndSecondPlaylistIDs();
@@ -78,13 +148,10 @@ namespace SpotifyTool.ConsoleMenu
 
         private async Task PrintNonPlayableTracks(IEnumerable<FullPlaylist> pls, IEnumerable<string> playlistIDs)
         {
-            if (playlistIDs == null)
-            {
-                playlistIDs = pls.Select(pl => pl.Id).ToList();
-            }
+            playlistIDs ??= pls.Select(pl => pl.Id).ToList();
             await LogFileManager.WriteToLogAndConsole("Nonplayable tracks for playlist " + StringConverter.GetPrintablePlaylistIds(playlistIDs, pls) + ":");
             FullTrack[] nonPlayableTracks = await Analytics.GetNonPlayableTracks(pls, playlistIDs);
-            if (nonPlayableTracks.Any())
+            if (nonPlayableTracks.Length != 0)
             {
                 string nonPlayableString = StringConverter.AllTracksToString("\n", nonPlayableTracks);
                 await LogFileManager.WriteToLogAndConsole(nonPlayableString);
@@ -101,7 +168,7 @@ namespace SpotifyTool.ConsoleMenu
         {
             await LogFileManager.WriteToLogAndConsole("Double tracks for playlist " + StringConverter.GetPrintablePlaylistIds(playlistIDs, pls) + ":");
             FullTrack[] allSameTracks = await Analytics.GetDoubleTracks(pls, playlistIDs);
-            if (allSameTracks.Any())
+            if (allSameTracks.Length != 0)
             {
                 string sameTracksString = StringConverter.AllTracksToString("\n", allSameTracks);
                 await LogFileManager.WriteToLogAndConsole(sameTracksString);
@@ -122,9 +189,9 @@ namespace SpotifyTool.ConsoleMenu
             await PlaylistManager.RefreshSinglePlaylist(secondID);
             await LibraryManager.RefreshLibraryTracksForCurrentUser();
             await PrintNonPlayableTracks(null, mainIDs);
-            await PrintNonPlayableTracks(null, new string[] { secondID });
+            await PrintNonPlayableTracks(null, [secondID]);
             await CheckDoubleTracks(null, mainIDs);
-            await CheckDoubleTracks(null, new string[] { secondID });
+            await CheckDoubleTracks(null, [secondID]);
             await CheckDoubleLibraryTracks();
             await CrossCheckLikedAndPlaylist(null, mainIDs);
             await FindDoubleArtists(secondID);
@@ -138,7 +205,7 @@ namespace SpotifyTool.ConsoleMenu
             List<FullPlaylistTrack> secondPL = await PlaylistManager.GetAllPlaylistTracks(secondPLID);
             List<FullTrack> tracks = PlaylistManager.GetAllPlaylistTrackInfo(secondPL);
             FullTrack[] doubleArtistTracks = Analytics.GetDoubleArtistsTracks(tracks).OrderBy(t => t.Artists.OrderBy(a => a.Name).First().Name).ToArray();
-            if (doubleArtistTracks.Any())
+            if (doubleArtistTracks.Length != 0)
             {
                 string doubleArtistsString = StringConverter.AllTracksToString("\n", doubleArtistTracks);
                 await LogFileManager.WriteToLogAndConsole(doubleArtistsString);
@@ -159,7 +226,7 @@ namespace SpotifyTool.ConsoleMenu
             List<FullTrack> secondaryTracks = PlaylistManager.GetAllPlaylistTrackInfo(secondaryTracksTask.Result);
             await LogFileManager.WriteToLogAndConsole("Tracks to add from main playlist " + StringConverter.GetPrintablePlaylistIds(mainPLIDs) + " to secondary playlist " + secondPLID + ":");
             ICollection<FullTrack> toAdd = Analytics.GetTracksToAddToSecondary(mainTracks, secondaryTracks);
-            if (toAdd.Any())
+            if (toAdd.Count != 0)
             {
                 string toAddLinkedString = StringConverter.AllTracksToString("\n", toAdd.ToArray());
                 await LogFileManager.WriteToLogAndConsole(toAddLinkedString);
@@ -170,7 +237,7 @@ namespace SpotifyTool.ConsoleMenu
             }
             await LogFileManager.WriteToLogAndConsole("\n");
 
-            if (!toAdd.Any())
+            if (toAdd.Count == 0)
             {
                 return;
             }
@@ -207,13 +274,10 @@ namespace SpotifyTool.ConsoleMenu
 
         public async Task CrossCheckLikedAndPlaylist(IEnumerable<FullPlaylist> playlists, IEnumerable<string> playlistIDs)
         {
-            if (playlistIDs == null)
-            {
-                playlistIDs = playlists.Select(pl => pl.Id).ToList();
-            }
+            playlistIDs ??= playlists.Select(pl => pl.Id).ToList();
             (List<SavedTrack> missingFromPlaylist, List<FullPlaylistTrack> missingFromLibrary) = await Analytics.CrossCheckLikedAndPlaylist(playlists, playlistIDs);
             await LogFileManager.WriteToLogAndConsole("Tracks not in library but in playlist " + StringConverter.GetPrintablePlaylistIds(playlistIDs) + ":");
-            if (missingFromLibrary.Any())
+            if (missingFromLibrary.Count != 0)
             {
                 string notInLib = StringConverter.AllTracksToString("\n", missingFromLibrary.Select(fpt => fpt.TrackInfo).ToArray());
                 await LogFileManager.WriteToLogAndConsole(notInLib);
@@ -226,7 +290,7 @@ namespace SpotifyTool.ConsoleMenu
             await LogFileManager.WriteToLogAndConsole("\n");
 
             await LogFileManager.WriteToLogAndConsole("Tracks not in playlist " + StringConverter.GetPrintablePlaylistIds(playlistIDs) + " but in library:");
-            if (missingFromPlaylist.Any())
+            if (missingFromPlaylist.Count != 0)
             {
                 string notInPl = StringConverter.AllTracksToString("\n", missingFromPlaylist.Select(fpt => fpt.Track).ToArray());
                 await LogFileManager.WriteToLogAndConsole(notInPl);
@@ -242,7 +306,7 @@ namespace SpotifyTool.ConsoleMenu
         {
             FullTrack[] doubleTracks = await Analytics.GetDoubleLibraryTracks();
             await LogFileManager.WriteToLogAndConsole("Tracks double in library:");
-            if (doubleTracks.Any())
+            if (doubleTracks.Length != 0)
             {
                 string doubleTracksString = StringConverter.AllTracksToString("\n", doubleTracks);
                 await LogFileManager.WriteToLogAndConsole(doubleTracksString);
@@ -266,14 +330,14 @@ namespace SpotifyTool.ConsoleMenu
             await DiscoveryManager.EnqueueFromArtistAlbums(artistId, onlyLatest, includeAllVariants);
         }
 
-        public static async Task EnqueueArtistTopTracks()
-        {
-            var artistId = await MenuHelper.GetArtistId();
-            Console.WriteLine("Please write 0 to exclude variants (remixes etc) for new found tracks and 1 to include all variants");
-            var chosenInt = MenuHelper.GetInt(0, 1);
-            var includeAllVariants = chosenInt != 0;
-            await DiscoveryManager.EnqueueArtistTopTracks(artistId, includeAllVariants);
-        }
+        //public static async Task EnqueueArtistTopTracks()
+        //{
+        //    var artistId = await MenuHelper.GetArtistId();
+        //    Console.WriteLine("Please write 0 to exclude variants (remixes etc) for new found tracks and 1 to include all variants");
+        //    var chosenInt = MenuHelper.GetInt(0, 1);
+        //    var includeAllVariants = chosenInt != 0;
+        //    await DiscoveryManager.EnqueueArtistTopTracks(artistId, includeAllVariants);
+        //}
 
         public async Task CheckSecondaryToPrimaryPlaylist()
         {
@@ -286,7 +350,7 @@ namespace SpotifyTool.ConsoleMenu
             var writeTask = LogFileManager.WriteToLogAndConsole("Tracks in secondary playlist " + secondaryId + " but not in primary playlist " + StringConverter.GetPrintablePlaylistIds(primaryIds) + ":");
             var notInMain = await Analytics.GetTracksInSecondaryButNotInPrimary(primaryIds, secondaryId);
             await writeTask;
-            if (notInMain.Any())
+            if (notInMain.Count != 0)
             {
                 string toAddLinkedString = StringConverter.AllPlalistTracksToString("\n", notInMain.ToArray());
                 await LogFileManager.WriteToLogAndConsole(toAddLinkedString);
@@ -297,7 +361,7 @@ namespace SpotifyTool.ConsoleMenu
             }
             await LogFileManager.WriteToLogAndConsole("\n");
 
-            if (!notInMain.Any())
+            if (notInMain.Count == 0)
             {
                 return;
             }

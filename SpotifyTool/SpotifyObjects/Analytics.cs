@@ -12,7 +12,6 @@ namespace SpotifyTool.SpotifyObjects
         public static async Task<FullTrack[]> GetNonPlayableTracks(IEnumerable<FullPlaylist> pls, IEnumerable<string> playlistIDs)
         {
             PrivateUser user = await SpotifyAPIManager.Instance.GetUser();
-            string country = user.Country;
             List<FullTrack> allPlaylistTracks = await GetAllPlaylistsTracks(pls, playlistIDs);
             FullTrack[] nonPlayableTracks = allPlaylistTracks.Where(t => !t.IsPlayable || t.IsLocal).ToArray();
             return nonPlayableTracks;
@@ -51,17 +50,10 @@ namespace SpotifyTool.SpotifyObjects
             ICollection<FullTrack> sameIdTracks = new LinkedList<FullTrack>();
             foreach (FullTrack track in fullTracks)
             {
-                if (trackDictionary.ContainsKey(track.Id))
+                if (!trackDictionary.TryAdd(track.Id, track) && autoReturnSameId)
                 {
-                    if (autoReturnSameId)
-                    {
-                        sameIdTracks.Add(track);
-                        sameIdTracks.Add(track);
-                    }
-                }
-                else
-                {
-                    trackDictionary.Add(track.Id, track);
+                    sameIdTracks.Add(track);
+                    sameIdTracks.Add(track);
                 }
             }
             TrackSubset[] trackSubsets = fullTracks.Select(t => new TrackSubset(t)).OrderBy(t => t.LowerName).ToArray();
@@ -90,7 +82,7 @@ namespace SpotifyTool.SpotifyObjects
                         TrackSubset trackToCompare = trackSubsets[j];
                         HashSet<string> artistsOfCompareTrack = trackToCompare.ArtistIds;
                         List<string> sameArtists = artistIDsOfTrackToCheck.Where(aid => artistsOfCompareTrack.Contains(aid)).ToList();
-                        if (!sameArtists.Any())
+                        if (sameArtists.Count == 0)
                         {
                             continue;
                         }
@@ -103,7 +95,7 @@ namespace SpotifyTool.SpotifyObjects
                         //Maybe use recursion to get more depth
                         IEnumerable<string> differentArtists = artistsOfCompareTrack.Concat(artistIDsOfTrackToCheck).Where(aid => !sameArtists.Contains(aid));
                         List<TrackSubset> differentArtistsTracks = trackSubsets.Where(t => t != trackToCheck && t != trackToCompare && t.ArtistIds.Any(a => differentArtists.Contains(a))).ToList();
-                        if (differentArtistsTracks.Any())
+                        if (differentArtistsTracks.Count != 0)
                         {
                             doubleArtistTracks.Add(trackToCompare);
                             doubleArtistTracks.Add(trackToCheck);

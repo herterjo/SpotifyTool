@@ -14,7 +14,7 @@ namespace SpotifyTool.SpotifyAPI
         public event Action OnLogin;
 
         private EmbedIOAuthServer server;
-        private readonly AsyncLock userLock = new AsyncLock();
+        private readonly AsyncLock userLock = new();
 
         private async Task LogInRequest()
         {
@@ -33,7 +33,7 @@ namespace SpotifyTool.SpotifyAPI
             (string id, string _) = await appIDSecretTask;
             LoginRequest request = new LoginRequest(baseUri, id, LoginRequest.ResponseType.Code)
             {
-                Scope = new List<string> {
+                Scope = [
                     Scopes.AppRemoteControl,
                     Scopes.PlaylistModifyPrivate,
                     Scopes.PlaylistModifyPublic,
@@ -48,7 +48,7 @@ namespace SpotifyTool.SpotifyAPI
                     Scopes.UserReadPlaybackState,
                     Scopes.UserReadPrivate,
                     Scopes.UserReadRecentlyPlayed,
-                    Scopes.UserTopRead }
+                    Scopes.UserTopRead ]
             };
             Uri uri = request.ToUri();
             BrowserUtil.Open(uri);

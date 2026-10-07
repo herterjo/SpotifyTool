@@ -24,10 +24,7 @@ namespace SpotifyTool.SpotifyAPI
         {
             get
             {
-                if (_Instance == null)
-                {
-                    _Instance = new ClientManager();
-                }
+                _Instance ??= new ClientManager();
                 return _Instance;
             }
         }

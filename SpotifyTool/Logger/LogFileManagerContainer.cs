@@ -4,13 +4,8 @@ using System.Text;
 
 namespace SpotifyTool.Logger
 {
-    public class LogFileManagerContainer
+    public class LogFileManagerContainer(LogFileManager logFileManager)
     {
-        public LogFileManager LogFileManager { get; }
-
-        public LogFileManagerContainer(LogFileManager logFileManager)
-        {
-            this.LogFileManager = logFileManager ?? throw new ArgumentNullException(nameof(logFileManager));
-        }
+        public LogFileManager LogFileManager { get; } = logFileManager ?? throw new ArgumentNullException(nameof(logFileManager));
     }
 }

@@ -12,7 +12,7 @@ namespace SpotifyTool.ConsoleMenu
         {
         }
 
-        private MainMenu(LogFileManager logFileManager, MainMenuActions mainMenuActions) : base(new List<(string Name, Func<Task> Action)>() {
+        private MainMenu(LogFileManager logFileManager, MainMenuActions mainMenuActions) : base([
                 ("Log in", SpotifyAPIManager.Instance.GetUser),
                 ("Refresh all cached playlists and current library", MainMenuActions.RefreshAllUserPlaylistsAndLibraryTracks),
                 ("All analytics", mainMenuActions.AllAnalytics),
@@ -23,6 +23,7 @@ namespace SpotifyTool.ConsoleMenu
                 ("Sync main playlist with ArtistOnlyOnce playlist", mainMenuActions.SyncMainAndSecond),
                 ("Get double tracks in library", mainMenuActions.CheckDoubleLibraryTracks),
                 ("Cross check users library with playlist", mainMenuActions.CrossCheckLikedAndPlaylist),
+                ("Create a playlist with a random subset of songs from another playlist", MainMenuActions.RandomPlaylistSubset),
                 ("Edit playlist", async() => {
                     PlaylistEditMenu menu = await PlaylistEditMenu.GetPlaylistEditMenuActions(logFileManager);
                     await menu.UseMenu();
@@ -32,8 +33,8 @@ namespace SpotifyTool.ConsoleMenu
                     await menu.UseMenu();
                 }),
                 ("Enqueue more tracks from artist", MainMenuActions.EnqueueArtistTracks),
-                ("Enqueue top tracks from artist", MainMenuActions.EnqueueArtistTopTracks)
-            }, 0)
+                //("Enqueue top tracks from artist", MainMenuActions.EnqueueArtistTopTracks)
+            ], 0)
         {
         }
     }
